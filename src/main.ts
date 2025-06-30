@@ -1,5 +1,5 @@
 import { installAtPolyfill } from './polyfills';
-import { App, Modal, TFile, Plugin, Editor, MarkdownView, WorkspaceLeaf, FileView } from 'obsidian';
+import { App, Modal, TFile, Plugin, Editor, MarkdownView, WorkspaceLeaf, FileView, Notice } from 'obsidian';
 import { SupernotePluginSettings, SupernoteSettingTab, DEFAULT_SETTINGS } from './settings';
 import { SupernoteX, fetchMirrorFrame } from 'supernote-typescript';
 import { DownloadListModal, UploadListModal } from './FileListModal';
@@ -7,6 +7,7 @@ import { jsPDF } from 'jspdf';
 import { SupernoteWorkerMessage, SupernoteWorkerResponse } from './myworker.worker';
 import Worker from 'myworker.worker';
 import { replaceTextWithCustomDictionary } from './customDictionary';
+import { BatchFilePane, BATCH_FILE_VIEW_TYPE } from './batch-file-pane';
 
 function generateTimestamp(): string {
 	const date = new Date();
@@ -22,17 +23,17 @@ function generateTimestamp(): string {
 }
 
 function dataUrlToBuffer(dataUrl: string): ArrayBuffer {
-    // Remove data URL prefix (e.g., "data:image/png;base64,")
-    const base64 = dataUrl.split(',')[1];
-    // Convert base64 to binary string
-    const binaryString = atob(base64);
-    // Create buffer and view
-    const bytes = new Uint8Array(binaryString.length);
-    // Convert binary string to buffer
-    for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
+	// Remove data URL prefix (e.g., "data:image/png;base64,")
+	const base64 = dataUrl.split(',')[1];
+	// Convert base64 to binary string
+	const binaryString = atob(base64);
+	// Create buffer and view
+	const bytes = new Uint8Array(binaryString.length);
+	// Convert binary string to buffer
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return bytes.buffer as ArrayBuffer;
 }
 
 /**
@@ -42,7 +43,7 @@ function dataUrlToBuffer(dataUrl: string): ArrayBuffer {
  * @param settings - The settings for the Supernote plugin.
  * @returns The processed text.
  */
-function processSupernoteText(text: string, settings: SupernotePluginSettings): string {
+export function processSupernoteText(text: string, settings: SupernotePluginSettings): string {
 	let processedText = text;
 	if (settings.isCustomDictionaryEnabled) {
 		processedText = replaceTextWithCustomDictionary(processedText, settings.customDictionary);
@@ -51,93 +52,93 @@ function processSupernoteText(text: string, settings: SupernotePluginSettings): 
 }
 
 export class WorkerPool {
-    private workers: Worker[];
+	private workers: Worker[];
 
-    constructor(private maxWorkers: number = navigator.hardwareConcurrency) {
-        this.workers = Array(maxWorkers).fill(null).map(() =>
-            new Worker()
-        );
-    }
+	constructor(private maxWorkers: number = navigator.hardwareConcurrency) {
+		this.workers = Array(maxWorkers).fill(null).map(() =>
+			new Worker()
+		);
+	}
 
-    private processChunk(worker: Worker, note: SupernoteX, pageNumbers: number[]): Promise<any[]> {
-        return new Promise((resolve, reject) => {
-            const startTime = Date.now();
+	private processChunk(worker: Worker, note: SupernoteX, pageNumbers: number[]): Promise<any[]> {
+		return new Promise((resolve, reject) => {
+			// const startTime = Date.now();
 
-            worker.onmessage = (e: MessageEvent<SupernoteWorkerResponse>) => {
-                const duration = Date.now() - startTime;
-                //console.log(`Processed pages ${pageNumbers.join(',')} in ${duration}ms`);
+			worker.onmessage = (e: MessageEvent<SupernoteWorkerResponse>) => {
+				// const duration = Date.now() - startTime;
+				//console.log(`Processed pages ${pageNumbers.join(',')} in ${duration}ms`);
 
-                if (e.data.error) {
-                    reject(new Error(e.data.error));
-                } else {
-                    resolve(e.data.images);
-                }
-            };
+				if (e.data.error) {
+					reject(new Error(e.data.error));
+				} else {
+					resolve(e.data.images);
+				}
+			};
 
-            worker.onerror = (error) => {
-                console.error('Worker error:', error);
-                reject(error);
-            };
+			worker.onerror = (error) => {
+				console.error('Worker error:', error);
+				reject(error);
+			};
 
-            const message: SupernoteWorkerMessage = {
-                type: 'convert',
-                note,
-                pageNumbers
-            };
+			const message: SupernoteWorkerMessage = {
+				type: 'convert',
+				note,
+				pageNumbers
+			};
 
-            worker.postMessage(message);
-        });
-    }
+			worker.postMessage(message);
+		});
+	}
 
-    async processPages(note: SupernoteX, allPageNumbers: number[]): Promise<any[]> {
-        //console.time('Total processing time');
+	async processPages(note: SupernoteX, allPageNumbers: number[]): Promise<any[]> {
+		//console.time('Total processing time');
 
-        // Split pages into chunks based on number of workers
-        const chunkSize = Math.ceil(allPageNumbers.length / this.workers.length);
-        const chunks: number[][] = [];
+		// Split pages into chunks based on number of workers
+		const chunkSize = Math.ceil(allPageNumbers.length / this.workers.length);
+		const chunks: number[][] = [];
 
-        for (let i = 0; i < allPageNumbers.length; i += chunkSize) {
-            chunks.push(allPageNumbers.slice(i, i + chunkSize));
-        }
+		for (let i = 0; i < allPageNumbers.length; i += chunkSize) {
+			chunks.push(allPageNumbers.slice(i, i + chunkSize));
+		}
 
-        //console.log(`Processing ${allPageNumbers.length} pages in ${chunks.length} chunks`);
+		//console.log(`Processing ${allPageNumbers.length} pages in ${chunks.length} chunks`);
 
-        // Process chunks in parallel using available workers
-        const results = await Promise.all(
-            chunks.map((chunk, index) =>
-                this.processChunk(this.workers[index % this.workers.length], note, chunk)
-            )
-        );
+		// Process chunks in parallel using available workers
+		const results = await Promise.all(
+			chunks.map((chunk, index) =>
+				this.processChunk(this.workers[index % this.workers.length], note, chunk)
+			)
+		);
 
-        //console.timeEnd('Total processing time');
-        return results.flat();
-    }
+		//console.timeEnd('Total processing time');
+		return results.flat();
+	}
 
-    terminate() {
-        this.workers.forEach(worker => worker.terminate());
-        this.workers = [];
-    }
+	terminate() {
+		this.workers.forEach(worker => worker.terminate());
+		this.workers = [];
+	}
 }
 
 export class ImageConverter {
-    private workerPool: WorkerPool;
+	private workerPool: WorkerPool;
 
-    constructor(maxWorkers = navigator.hardwareConcurrency) {  // Default to 4 workers
-        this.workerPool = new WorkerPool(maxWorkers);
-    }
+	constructor(maxWorkers = navigator.hardwareConcurrency) {  // Default to 4 workers
+		this.workerPool = new WorkerPool(maxWorkers);
+	}
 
-    async convertToImages(note: SupernoteX, pageNumbers?: number[]): Promise<any[]> {
-        const pages = pageNumbers ?? Array.from({length: note.pages.length}, (_, i) => i+1);
-        const results = await this.workerPool.processPages(note, pages);
-        return results;
-    }
+	async convertToImages(note: SupernoteX, pageNumbers?: number[]): Promise<any[]> {
+		const pages = pageNumbers ?? Array.from({ length: note.pages.length }, (_, i) => i + 1);
+		const results = await this.workerPool.processPages(note, pages);
+		return results;
+	}
 
-    terminate() {
-        this.workerPool.terminate();
-    }
+	terminate() {
+		this.workerPool.terminate();
+	}
 }
 
-class VaultWriter {
+export class VaultWriter {
 	app: App;
 	settings: SupernotePluginSettings;
 
@@ -189,9 +190,9 @@ class VaultWriter {
 			converter.terminate();
 		}
 
-		let imgs: TFile[] = [];
+		const imgs: TFile[] = [];
 		for (let i = 0; i < images.length; i++) {
-			let filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}-${i}.png`);
+			const filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}-${i}.png`);
 			const buffer = dataUrlToBuffer(images[i]);
 			imgs.push(await this.app.vault.createBinary(filename, buffer));
 		}
@@ -200,23 +201,21 @@ class VaultWriter {
 
 	async attachMarkdownFile(file: TFile) {
 		const note = await this.app.vault.readBinary(file);
-		let sn = new SupernoteX(new Uint8Array(note));
+		const sn = new SupernoteX(new Uint8Array(note));
 
 		this.writeMarkdownFile(file, sn, null);
 	}
 
 	async attachNoteFiles(file: TFile) {
 		const note = await this.app.vault.readBinary(file);
-		let sn = new SupernoteX(new Uint8Array(note));
+		const sn = new SupernoteX(new Uint8Array(note));
 
 		const imgs = await this.writeImageFiles(file, sn);
 		this.writeMarkdownFile(file, sn, imgs);
 	}
 
-	async exportToPDF(file: TFile) {
-		const note = await this.app.vault.readBinary(file);
-		let sn = new SupernoteX(new Uint8Array(note));
-
+	// Extract the exact PDF generation logic into a reusable function
+	async generatePDFFromSupernote(sn: SupernoteX): Promise<ArrayBuffer> {
 		// Create PDF document
 		const pdf = new jsPDF({
 			orientation: 'portrait',
@@ -250,9 +249,18 @@ class VaultWriter {
 			pdf.addImage(images[i], 'PNG', 0, 0, sn.pageWidth, sn.pageHeight);
 		}
 
+		return pdf.output('arraybuffer');
+	}
+
+	async exportToPDF(file: TFile) {
+		const note = await this.app.vault.readBinary(file);
+		const sn = new SupernoteX(new Uint8Array(note));
+
+		// Use the extracted PDF generation function
+		const pdfOutput = await this.generatePDFFromSupernote(sn);
+
 		// Generate filename and save
-		let filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}.pdf`);
-		const pdfOutput = pdf.output('arraybuffer');
+		const filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}.pdf`);
 		await this.app.vault.createBinary(filename, pdfOutput);
 	}
 }
@@ -285,7 +293,7 @@ export class SupernoteView extends FileView {
 		container.createEl("h1", { text: file.name });
 
 		const note = await this.app.vault.readBinary(file);
-		let sn = new SupernoteX(new Uint8Array(note));
+		const sn = new SupernoteX(new Uint8Array(note));
 		let images: string[] = [];
 
 		const converter = new ImageConverter();
@@ -331,7 +339,7 @@ export class SupernoteView extends FileView {
 			atoc.createEl("h2", { text: "Table of contents" });
 			const ul = container.createEl("ul");
 			for (let i = 0; i < images.length; i++) {
-				const a = container.createEl("li").createEl("a");
+				const a = ul.createEl("li").createEl("a");
 				a.href = `#page${i + 1}`
 				a.text = `Page ${i + 1}`
 			}
@@ -359,7 +367,7 @@ export class SupernoteView extends FileView {
 				// If Collapse Text setting is enabled, place the text into an HTML `details` element
 				if (this.settings.collapseRecognizedText) {
 					text = pageContainer.createEl('details', {
-						text: '\n' + processSupernoteText(sn.pages[i].text,this.settings),
+						text: '\n' + processSupernoteText(sn.pages[i].text, this.settings),
 						cls: 'page-recognized-text',
 					});
 					text.createEl('summary', { text: `Page ${i + 1} Recognized Text` });
@@ -403,13 +411,19 @@ export default class SupernotePlugin extends Plugin {
 	settings: SupernotePluginSettings;
 
 	async onload() {
-        // Install polyfills before any other code runs
-        installAtPolyfill();
+		// Install polyfills before any other code runs
+		installAtPolyfill();
 
 		await this.loadSettings();
 		vw = new VaultWriter(this.app, this.settings);
 
 		this.addSettingTab(new SupernoteSettingTab(this.app, this));
+
+		// Register batch file pane view
+		this.registerView(
+			BATCH_FILE_VIEW_TYPE,
+			(leaf) => new BatchFilePane(leaf, this.app, this.settings)
+		);
 
 		this.addCommand({
 			id: 'attach-supernote-file-from-device',
@@ -438,6 +452,32 @@ export default class SupernotePlugin extends Plugin {
 			}
 		});
 
+		// New batch file management commands
+		this.addCommand({
+			id: 'open-supernote-batch-pane',
+			name: 'Open Supernote Batch File Manager',
+			callback: () => {
+				if (this.settings.directConnectIP.length === 0) {
+					new DirectConnectErrorModal(this.app, this.settings, new Error("IP is unset")).open();
+					return;
+				}
+				this.activateBatchPane();
+			}
+		});
+
+		this.addCommand({
+			id: 'attach-selected-supernote-files',
+			name: 'Attach selected Supernote files as PDF',
+			callback: () => {
+				if (this.settings.directConnectIP.length === 0) {
+					new DirectConnectErrorModal(this.app, this.settings, new Error("IP is unset")).open();
+					return;
+				}
+				// This will be handled by the batch pane itself
+				new Notice('Please use the Batch File Manager to select and attach files');
+			}
+		});
+
 		this.registerView(
 			VIEW_TYPE_SUPERNOTE,
 			(leaf) => new SupernoteView(leaf, this.settings)
@@ -449,7 +489,7 @@ export default class SupernotePlugin extends Plugin {
 			name: 'Insert a Supernote screen mirroring image as attachment',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				// generate a unique filename for the mirror based on the current note path
-				let ts = generateTimestamp();
+				const ts = generateTimestamp();
 				const f = this.app.workspace.activeEditor?.file?.basename || '';
 				const filename = await this.app.fileManager.getAvailablePathForAttachment(`supernote-mirror-${f}-${ts}.png`);
 
@@ -457,9 +497,9 @@ export default class SupernotePlugin extends Plugin {
 					if (this.settings.directConnectIP.length == 0) {
 						throw new Error("IP is unset, please set in Supernote plugin settings")
 					}
-					let image = await fetchMirrorFrame(`${this.settings.directConnectIP}:8080`);
+					const image = await fetchMirrorFrame(`${this.settings.directConnectIP}:8080`);
 
-					const file = await this.app.vault.createBinary(filename, image.toBuffer());
+					const file = await this.app.vault.createBinary(filename, image.toBuffer() as unknown as ArrayBuffer);
 					const path = this.app.workspace.activeEditor?.file?.path;
 					if (!path) {
 						throw new Error("Active file path is null")
@@ -552,7 +592,8 @@ export default class SupernotePlugin extends Plugin {
 	}
 
 	onunload() {
-
+		// Clean up batch pane view
+		this.app.workspace.detachLeavesOfType(BATCH_FILE_VIEW_TYPE);
 	}
 
 	async activateView() {
@@ -572,6 +613,29 @@ export default class SupernotePlugin extends Plugin {
 				throw new Error("leaf is null");
 			}
 			await leaf.setViewState({ type: VIEW_TYPE_SUPERNOTE, active: true });
+		}
+
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		workspace.revealLeaf(leaf);
+	}
+
+	async activateBatchPane() {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(BATCH_FILE_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+			if (!leaf) {
+				throw new Error("leaf is null");
+			}
+			await leaf.setViewState({ type: BATCH_FILE_VIEW_TYPE, active: true });
 		}
 
 		// "Reveal" the leaf in case it is in a collapsed sidebar

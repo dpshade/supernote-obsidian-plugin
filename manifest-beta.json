@@ -1,11 +1,11 @@
 {
 	"id": "supernote",
-	"name": "Unofficial Supernote by Ratta Integration",
+	"name": "Supernote Integration - Enhanced",
 	"version": "2.9.0",
 	"minAppVersion": "1.5.12",
-	"description": "View Supernote notes, generate markdown from note and capture screen mirror.",
-	"author": "Brandon Philips",
-	"authorUrl": "https://ifup.org",
-	"fundingUrl": "https://github.com/philips/supernote-obsidian-plugin/blob/main/README.md#funding",
+	"description": "Enhanced Supernote integration with batch file management, multi-file downloads, and PDF generation.",
+	"author": "Dylan Shade",
+	"authorUrl": "https://github.com/dpshade",
+	"fundingUrl": "https://github.com/dpshade/supernote-obsidian-plugin#readme",
 	"isDesktopOnly": false
 }

@@ -1,47 +1,47 @@
-import { installAtPolyfill } from 'polyfills';
-installAtPolyfill();
+import { Image } from 'image-js';
 
-import { SupernoteX, toImage } from 'supernote-typescript';
-
-export { };
-
-export type SupernoteWorkerMessage = {
+export interface SupernoteWorkerMessage {
     type: 'convert';
-    note: SupernoteX;
-    pageNumbers?: number[];
+    note: any; // SupernoteX type
+    pageNumbers: number[];
 }
 
-export type SupernoteWorkerResponse = {
-    type: 'result';
+export interface SupernoteWorkerResponse {
     images: string[];
     error?: string;
 }
 
+// Import SupernoteX and toImage from the correct module
+import { SupernoteX, toImage } from 'supernote-typescript';
+
 self.onmessage = async (e: MessageEvent<SupernoteWorkerMessage>) => {
     try {
-        const { type, note, pageNumbers } = e.data;
+        const { note, pageNumbers } = e.data;
+        const sn = note as SupernoteX;
 
-        if (type === 'convert') {
-            const results = await toImage(note, pageNumbers);
-            // Convert canvas/images to data URLs before sending
-            const dataUrls = results.map(result => {
-                if (result && typeof result.toDataURL === 'function') {
-                    return result.toDataURL();
-                }
-                console.error('Result is not a canvas or does not support toDataURL');
-                return null;
+        const results = await Promise.all(
+            pageNumbers.map(pageNum => toImage(sn, [pageNum - 1]))
+        );
+
+        if (results.length > 0) {
+            const dataUrls = results.map((result: any) => {
+                const img = new Image(result.width, result.height, result.data, { alpha: 0 });
+                return img.toDataURL();
             });
 
-            self.postMessage({
-                type: 'result',
+            const response: SupernoteWorkerResponse = {
                 images: dataUrls
-            });
+            };
+
+            self.postMessage(response);
+        } else {
+            throw new Error('No images generated');
         }
     } catch (error) {
-        self.postMessage({
-            type: 'result',
+        const response: SupernoteWorkerResponse = {
             images: [],
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
-        });
+            error: error.message
+        };
+        self.postMessage(response);
     }
 };

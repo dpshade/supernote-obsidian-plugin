@@ -1,49 +1,202 @@
-# Supernote Obsidian Plugin
+# Supernote Obsidian Plugin - Enhanced
 
-I use my Supernote for capturing hand written notes and reading documents.
+**Enhanced Supernote by Ratta Integration for Obsidian**
 
-But, I already use Obsidian for organizing and capturing all of my digital notes.
+*Originally created by [Brandon Philips](https://github.com/philips), enhanced by [Dylan Shade](https://github.com/dpshade)*
 
-This plugin enables me (and now you!) to import handwritten notes into Obsidian and view them on a desktop, phone or tablet.
+This enhanced version adds powerful batch file management capabilities to the original Supernote Obsidian plugin, allowing you to efficiently manage multiple files at once.
 
-This plugin has four main features:
+## Features
 
-- 📝 View Supernote `*.note` files in your Obsidian Vault. You can link to these notes from your Markdown notes too `[My Note](example.note)`.
+### Single File Operations
+- **Attach Supernote file from device**: Download and attach individual files from your Supernote device
+- **Upload file to Supernote**: Upload the current file to your Supernote device
+- **Export Supernote note as files**: Convert Supernote notes to markdown and PNG files
+- **Export Supernote note as PDF**: Convert Supernote notes to PDF format
+- **Insert screen mirror image**: Capture and insert the current Supernote screen as an image
 
-- ➡️  Export Supernote `*.note` files as PNGs and/or markdown files and attach them to your Vault.
+### 🆕 Batch File Management
+- **Batch File Pane**: Dedicated pane for browsing and managing multiple Supernote files
+- **Multi-file Selection**: Select multiple files with checkboxes for batch operations
+- **Concurrent Downloads**: Download multiple files simultaneously with progress tracking
+- **Batch PDF Generation**: Create a single PDF containing multiple Supernote notes
+- **One-Click Attachment**: Attach all selected files as a single PDF to the current note
 
-- 📺 Copy an image from a Supernote via [screen mirroring](https://support.supernote.com/en_US/organizing-managing/1791924-screen-mirroring) into your current note with the "Insert Supernote mirror image" command ([demo video](https://youtu.be/Ih_NW-z_aLw))
+## Installation
 
-- ⬇️  Download & Upload files directly from your device via the Supernote [Browse & Access](https://support.supernote.com/en_US/Tools-Features/wi-fi-transfer) feature. ([demo video](https://www.youtube.com/watch?v=SEkp395hbBM))
+1. Download the latest release from the releases page
+2. Extract the files to your Obsidian vault's `.obsidian/plugins/supernote-obsidian-plugin/` folder
+3. Enable the plugin in Obsidian settings
 
-**Video Demo**
+## Configuration
 
-[![Watch the video](https://img.youtube.com/vi/tEoW35fYVew/hqdefault.jpg)](https://www.youtube.com/watch?v=tEoW35fYVew)
+### Direct Connect Setup
+1. Enable Direct Connect on your Supernote device
+2. Note the IP address displayed on your Supernote
+3. In Obsidian, go to Settings → Community Plugins → Supernote
+4. Enter the IP address in the "Direct Connect IP" field
 
-## Install via Community Plugin Store
+### Plugin Settings
+- **Direct Connect IP**: Your Supernote device's IP address
+- **Custom Dictionary**: Enable custom text replacement for recognized text
+- **Invert Colors When Dark**: Invert image colors in dark mode
+- **Note Image Max Dimension**: Maximum display size for note images
+- **Show Export Buttons**: Display export buttons in the Supernote view
+- **Show Table of Contents**: Show page navigation in the Supernote view
+- **Collapse Recognized Text**: Collapse text recognition results by default
 
-This plugin is available via the [Obsidian Community Plugin Store](https://obsidian.md/plugins?id=supernote). Click the previous link or search for "Unofficial Supernote by Ratta Integration". 
+## Usage
 
-## Install via BRAT
+### Single File Operations
 
-To test Beta builds of this plugin follow these steps:
+#### Download a File from Supernote
+1. Use the command palette: `Ctrl/Cmd + Shift + P`
+2. Search for "Attach Supernote file from device"
+3. Browse and select the file you want to download
+4. The file will be downloaded and attached to your current note
 
-- Install the BRAT plugin via Community Plugin Search
-- [Read the docs](https://tfthacker.com/BRAT)
-- Add `https://github.com/philips/supernote-obsidian-plugin`
+#### Upload a File to Supernote
+1. Open the file you want to upload in Obsidian
+2. Use the command palette: `Ctrl/Cmd + Shift + P`
+3. Search for "Upload the current file to a Supernote device"
+4. Navigate to the desired folder on your Supernote
+5. Select "[UPLOAD HERE]" to upload the file
 
-## Manually installing the plugin
+#### Export Supernote Notes
+1. Open a `.note` file in Obsidian
+2. Use the command palette to access export options:
+   - "Export this Supernote note as a markdown and PNG files as attachments"
+   - "Export this Supernote note as PDF"
+   - "Export this Supernote note as a markdown file attachment"
 
-- Copy over `main.js`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/obsidian-plugin-supernote/` from [https://github.com/philips/supernote-obsidian-plugin/releases](https://github.com/philips/supernote-obsidian-plugin)
+### 🆕 Batch File Management
 
-## Known Issues
+#### Opening the Batch File Pane
+1. Use the command palette: `Ctrl/Cmd + Shift + P`
+2. Search for "Open Supernote Batch File Manager"
+3. The batch file pane will open in the right sidebar
 
-There are a handful of known issues. Please check the [issue list](https://github.com/philips/supernote-obsidian-plugin/issues). If you don't see a matching issue please [create a new issue](https://github.com/philips/supernote-obsidian-plugin/issues)?
+#### Using the Batch File Pane
+1. **Navigation**: Use the up arrow to navigate to parent folders
+2. **File Selection**: Click checkboxes to select multiple files
+3. **Selection Controls**: 
+   - Use "Select All" to select all files in the current directory
+   - Use "Clear" to deselect all files
+4. **Batch Operations**:
+   - **Download Selected**: Download all selected files individually
+   - **Create PDF**: Generate a single PDF containing all selected notes
+   - **Attach All**: Create a PDF and attach it to the current note
 
-## Roadmap / Ideas
+#### Batch Operations Workflow
+1. Open the batch file pane
+2. Navigate to the folder containing your Supernote files
+3. Select the files you want to process using checkboxes
+4. Choose your desired operation:
+   - **Download**: Files are downloaded individually to your vault
+   - **PDF**: A single PDF is created with all selected notes as pages
+   - **Attach**: A PDF is created and automatically linked to your current note
 
-- 🔗 Note linking
-- 🎛️ Settings panel to control file layout, linking, and more
+## File Format Support
+
+- **`.note` files**: Full support with text recognition and image conversion
+- **Other file types**: Basic download and attachment support
+
+## Troubleshooting
+
+### Connection Issues
+- Ensure Direct Connect is enabled on your Supernote
+- Verify the IP address is correct in plugin settings
+- Check that both devices are on the same network
+- Try refreshing the connection using the refresh button in the batch pane
+
+### File Processing Issues
+- Large files may take longer to process
+- Ensure sufficient storage space on both devices
+- Check that the Supernote device is not in sleep mode
+
+### Performance Tips
+- Use the batch pane for multiple files instead of individual downloads
+- Close other applications to free up system resources
+- Consider processing files in smaller batches for very large collections
+
+## Development
+
+### Building from Source
+```bash
+npm install
+npm run build
+```
+
+### Building Directly to Obsidian Vault
+For development and testing, you can build the plugin directly to your Obsidian vault:
+
+```bash
+# One-time build to vault
+npm run build-to-vault "C:\Users\username\Documents\MyVault"
+
+# Development mode with auto-rebuild on changes
+npm run dev-to-vault "C:\Users\username\Documents\MyVault"
+```
+
+**Usage:**
+- Replace the path with your actual Obsidian vault path
+- Use quotes around the path if it contains spaces
+- The plugin will be installed to `.obsidian/plugins/supernote-obsidian-plugin/`
+- After installation, disable and re-enable the plugin in Obsidian settings
+
+**Development Workflow:**
+1. Run `npm run dev-to-vault <vault-path>` 
+2. Make changes to the source code
+3. Files are automatically built and copied to your vault
+4. Reload the plugin in Obsidian to see changes
+
+### Testing
+```bash
+npm test
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## Attribution
+
+This enhanced version is based on the original [Supernote Obsidian Plugin](https://github.com/philips/supernote-obsidian-plugin) by [Brandon Philips](https://github.com/philips). 
+
+### Original Contributors
+- **Brandon Philips** - Original plugin author and maintainer
+- **Community Contributors** - Various improvements and bug fixes
+
+### Enhanced Version
+- **Dylan Shade** - Batch file management, UI improvements, and development tooling
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Changelog
+
+### Version 2.9.0 - Enhanced by Dylan Shade
+- 🆕 Added batch file management pane
+- 🆕 Multi-file selection with checkboxes
+- 🆕 Concurrent batch downloads with progress tracking
+- 🆕 Batch PDF generation for multiple notes
+- 🆕 One-click attachment of multiple files as PDF
+- 🆕 Improved UI following Obsidian design patterns
+- 🆕 Native Obsidian file tree navigation
+- 🆕 Proper status bar and progress indicators
+- 🆕 Development build tools for direct vault installation
+
+### Previous Versions (Original Plugin)
+- Single file operations
+- Direct Connect support
+- Text recognition and custom dictionaries
+- Image conversion and PDF export
+- Screen mirroring functionality
 
 ## Thank You
 
