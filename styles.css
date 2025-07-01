@@ -76,309 +76,29 @@ div.page-container {
 
 /* Supernote Plugin Styles */
 
-/* Virtual Folder Styles - Matching Obsidian's Tree Structure Exactly */
+/* Virtual Folder Styles - Let Obsidian handle most styling naturally */
 [data-supernote-virtual="true"] {
-    /* Ensure virtual folder looks exactly like real folders */
-    margin: 0;
-    padding: 0;
-}
-
-[data-supernote-virtual="true"] .tree-item-self {
-    /* Match Obsidian's folder styling exactly */
-    display: flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 2px 0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.1s ease;
-    margin: 0;
-}
-
-[data-supernote-virtual="true"] .tree-item-self:hover {
-    background-color: var(--background-modifier-hover);
-}
-
-[data-supernote-virtual="true"] .tree-item-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-[data-supernote-virtual="true"] .tree-item-icon .svg-icon {
-    width: 16px;
-    height: 16px;
-    transition: transform 0.2s ease;
-}
-
-[data-supernote-virtual="true"] .tree-item-inner {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    font-size: var(--font-ui-medium);
-    color: var(--text-normal);
-}
-
-[data-supernote-virtual="true"] .tree-item-children {
-    /* Match Obsidian's children container */
-    margin: 0;
-    padding: 0;
-    min-height: 0;
+    /* Let Obsidian handle all styling naturally */
 }
 
 [data-supernote-file="true"] {
-    /* Ensure virtual files look exactly like real files */
-    margin: 0;
-    padding: 0;
+    /* Let Obsidian handle all styling naturally */
 }
 
-[data-supernote-file="true"] .tree-item-self {
-    /* Match Obsidian's file styling exactly */
-    display: flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 2px 0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.1s ease;
-    margin: 0;
-}
-
-[data-supernote-file="true"] .tree-item-self:hover {
-    background-color: var(--background-modifier-hover);
-}
-
-[data-supernote-file="true"] .tree-item-inner {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    font-size: var(--font-ui-medium);
-    color: var(--text-normal);
-}
-
-[data-supernote-file="true"] .nav-file-tag {
-    /* Match Obsidian's file tag styling */
+/* Only override the connection status indicator if needed */
+[data-supernote-virtual="true"] .connection-status {
     font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    background-color: var(--background-modifier-border);
-    padding: 2px 6px;
-    border-radius: 3px;
-    margin-left: 8px;
-    flex-shrink: 0;
+    opacity: 0.7;
 }
 
-/* Batch File Pane Styles - Matching Obsidian's Tree Structure */
+/* Batch File Pane Styles - Let Obsidian handle most styling */
 .supernote-file-pane {
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    /* Let Obsidian handle the basic structure */
 }
 
-.supernote-file-pane .workspace-tab-header {
-    background: var(--background-secondary);
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding: 8px 12px;
-    flex-shrink: 0;
-}
-
-.supernote-file-pane .workspace-tab-header-inner {
-    margin-bottom: 8px;
-}
-
-.supernote-file-pane .workspace-tab-header-title {
-    font-weight: 600;
-    color: var(--text-normal);
-}
-
-.supernote-file-pane .workspace-tab-header-toolbar {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.supernote-file-pane .nav-button-group {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-}
-
+/* Only override specific elements that need custom styling */
 .supernote-file-pane .nav-action-button {
-    padding: 4px 8px;
-    font-size: 12px;
-    border-radius: 4px;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--background-primary);
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-
-.supernote-file-pane .nav-action-button:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-    border-color: var(--background-modifier-border-hover);
-}
-
-.supernote-file-pane .nav-action-button.mod-warning {
-    background: var(--color-orange);
-    color: var(--text-on-accent);
-    border-color: var(--color-orange);
-}
-
-.supernote-file-pane .nav-action-button.mod-warning:hover {
-    background: var(--color-orange-hover);
-}
-
-.supernote-file-pane .nav-action-button.mod-success {
-    background: var(--color-green);
-    color: var(--text-on-accent);
-    border-color: var(--color-green);
-}
-
-.supernote-file-pane .nav-action-button.mod-success:hover {
-    background: var(--color-green-hover);
-}
-
-.supernote-file-pane .nav-action-button.mod-cta {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border-color: var(--interactive-accent);
-    font-weight: 500;
-}
-
-.supernote-file-pane .nav-action-button.mod-cta:hover {
-    background: var(--interactive-accent-hover);
-}
-
-/* Tree structure - matching Obsidian exactly */
-.supernote-file-pane .tree-item-children {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-}
-
-.supernote-file-pane .tree-item {
-    margin: 0;
-}
-
-.supernote-file-pane .tree-item-self {
-    display: flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 2px 0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.1s ease;
-}
-
-.supernote-file-pane .tree-item-self:hover,
-.supernote-file-pane .tree-item-self.is-hovered {
-    background-color: var(--background-modifier-hover);
-}
-
-.supernote-file-pane .tree-item-self.is-selected {
-    background-color: var(--background-modifier-active-hover);
-}
-
-.supernote-file-pane .tree-item-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.supernote-file-pane .tree-item-icon .svg-icon {
-    width: 12px;
-    height: 12px;
-    color: var(--text-muted);
-}
-
-.supernote-file-pane .tree-item-inner {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    line-height: 18px;
-}
-
-.supernote-file-pane .nav-folder-title-content {
-    color: var(--text-normal);
-    font-weight: 500;
-}
-
-.supernote-file-pane .nav-file-title-content {
-    color: var(--text-normal);
-}
-
-.supernote-file-pane .nav-file-tag {
-    font-size: 10px;
-    color: var(--text-muted);
-    background: var(--background-modifier-border);
-    padding: 1px 4px;
-    border-radius: 2px;
-    margin-left: 6px;
-    flex-shrink: 0;
-}
-
-.supernote-file-pane .tree-item-checkbox {
-    margin: 0 8px 0 0;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-
-.supernote-file-pane .nav-file-info {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-left: auto;
-    padding-left: 8px;
-    flex-shrink: 0;
-}
-
-/* Status bar */
-.supernote-file-pane .status-bar-item {
-    padding: 8px 12px;
-    background: var(--background-secondary);
-    border-top: 1px solid var(--background-modifier-border);
-    font-size: 12px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-    text-align: center;
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-    .supernote-file-pane .workspace-tab-header-toolbar {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .supernote-file-pane .nav-button-group {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .supernote-file-pane .nav-action-button {
-        flex: 1;
-        text-align: center;
-    }
-
-    .supernote-file-pane .nav-file-info {
-        display: none;
-    }
+    /* Custom action button styling if needed */
 }
 
 /* Existing Supernote styles */
@@ -422,23 +142,7 @@ div.page-container {
     margin-right: 10px;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-    .supernote-file-pane .nav-file-title {
-        padding: 6px 8px;
-        font-size: 13px;
-    }
-
-    .supernote-file-pane .nav-file-title-text-muted {
-        font-size: 11px;
-        min-width: 60px;
-    }
-
-    .supernote-file-pane .status-bar-item {
-        padding: 6px 8px;
-        font-size: 11px;
-    }
-}
+/* Responsive design - Let Obsidian handle most responsive behavior */
 
 /* Enhanced SupernoteView Styles */
 .supernote-view-header {

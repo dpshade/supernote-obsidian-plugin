@@ -55,7 +55,7 @@ describe('VirtualFolderProvider', () => {
             const folderEl = (provider as any).createVirtualFolderElement();
 
             expect(folderEl.className).toBe('nav-folder mod-root');
-            expect(folderEl.getAttribute('data-path')).toBe('📱 Supernote Device');
+            expect(folderEl.getAttribute('data-path')).toBe('Supernote Device');
             expect(folderEl.getAttribute('data-supernote-virtual')).toBe('true');
 
             const titleEl = folderEl.querySelector('.nav-folder-title');
@@ -69,7 +69,7 @@ describe('VirtualFolderProvider', () => {
             const folderEl = (provider as any).createVirtualFolderElement();
             const titleContent = folderEl.querySelector('.nav-folder-title-content');
 
-            expect(titleContent.innerHTML).toContain('📱 Supernote Device');
+            expect(titleContent.innerHTML).toContain('Supernote Device');
             expect(titleContent.innerHTML).toContain('(Disconnected)');
         });
     });
@@ -88,27 +88,26 @@ describe('VirtualFolderProvider', () => {
             const fileEl = (provider as any).createVirtualFileElement(mockFile);
 
             expect(fileEl.className).toBe('nav-file');
-            expect(fileEl.getAttribute('data-path')).toBe('📱 Supernote Device/test.note');
+            expect(fileEl.getAttribute('data-path')).toBe('Supernote Device/test.note');
             expect(fileEl.getAttribute('data-supernote-file')).toBe('true');
 
             const titleEl = fileEl.querySelector('.nav-file-title');
             expect(titleEl).toBeTruthy();
         });
 
-        it('should show file icon for regular files', () => {
+        it('should show file name correctly', () => {
             const fileEl = (provider as any).createVirtualFileElement(mockFile);
-            const titleContent = fileEl.querySelector('.nav-folder-title-content');
+            const titleContent = fileEl.querySelector('.nav-file-title-content');
 
-            expect(titleContent.innerHTML).toContain('📄');
-            expect(titleContent.innerHTML).toContain('test.note');
+            expect(titleContent.textContent).toContain('test.note');
         });
 
-        it('should show folder icon for directories', () => {
+        it('should show folder name correctly', () => {
             const dirFile: SupernoteFile = { ...mockFile, isDirectory: true };
             const fileEl = (provider as any).createVirtualFileElement(dirFile);
-            const titleContent = fileEl.querySelector('.nav-folder-title-content');
+            const titleContent = fileEl.querySelector('.nav-file-title-content');
 
-            expect(titleContent.innerHTML).toContain('📁');
+            expect(titleContent.textContent).toContain('test.note');
         });
     });
 

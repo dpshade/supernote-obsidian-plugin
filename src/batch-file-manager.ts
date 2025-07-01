@@ -109,6 +109,24 @@ export class BatchFileManager {
         }
     }
 
+    async loadDirectoryFiles(directory: SupernoteFile): Promise<SupernoteFile[]> {
+        if (!directory.isDirectory) {
+            return [];
+        }
+
+        // Navigate to the directory and load its contents
+        const originalPath = this.currentPath;
+        this.currentPath = directory.uri;
+
+        try {
+            const files = await this.loadFiles();
+            return files;
+        } finally {
+            // Restore original path
+            this.currentPath = originalPath;
+        }
+    }
+
     navigateUp(): void {
         if (this.currentPath !== '/') {
             const pathParts = this.currentPath.split('/').filter(Boolean);
