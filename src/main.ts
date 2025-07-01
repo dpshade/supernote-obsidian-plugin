@@ -85,14 +85,13 @@ export class WorkerPool {
 			// Pass the original buffer data to the worker using transferable objects
 			const message: SupernoteWorkerMessage = {
 				type: 'convert',
-				noteBuffer: originalBuffer.buffer as ArrayBuffer, // Transfer ArrayBuffer directly
+				noteBuffer: originalBuffer.buffer.slice(0) as ArrayBuffer, // Clone and cast to ArrayBuffer
 				pageNumbers
 			};
 
-			// Transfer the buffer ownership to worker for better performance
-			// Cast to ArrayBuffer to ensure compatibility with Transferable interface
-			const transferableBuffer = originalBuffer.buffer as ArrayBuffer;
-			worker.postMessage(message, [transferableBuffer]);
+			// Transfer the cloned buffer ownership to worker
+			const bufferCopy = message.noteBuffer;
+			worker.postMessage(message, [bufferCopy]);
 		});
 	}
 
@@ -337,25 +336,6 @@ export class SupernoteView extends FileView {
 
 		// Display mode toggle
 		const controlsEl = header.createDiv('supernote-view-controls');
-
-		// Display mode toggle buttons
-		const modeGroup = controlsEl.createDiv('button-group');
-
-		const pngBtn = modeGroup.createEl('button', {
-			text: 'PNG View',
-			cls: 'mod-cta'
-		});
-		pngBtn.addEventListener('click', () => this.switchToPngMode());
-
-		const pdfBtn = modeGroup.createEl('button', {
-			text: 'PDF View',
-			cls: ''
-		});
-		pdfBtn.addEventListener('click', () => this.switchToPdfMode());
-
-		// Store references for updating active state
-		this.pngBtn = pngBtn as HTMLButtonElement;
-		this.pdfBtn = pdfBtn as HTMLButtonElement;
 
 		// Export controls
 		if (this.settings.showExportButtons) {

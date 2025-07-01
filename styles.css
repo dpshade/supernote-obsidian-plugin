@@ -463,3 +463,143 @@ div.page-container {
         max-height: 95vh;
     }
 }
+
+/* Temporary Supernote View Loading and Error States */
+.supernote-loading {
+    text-align: center;
+    padding: 40px;
+}
+
+.supernote-spinner {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.supernote-error {
+    text-align: center;
+    padding: 40px;
+}
+
+.supernote-error h3 {
+    color: var(--text-error);
+    margin-bottom: 16px;
+}
+
+.supernote-error p {
+    color: var(--text-muted);
+    margin-bottom: 20px;
+}
+
+/* Enhanced Virtual Folder States */
+.supernote-status-item .tree-item-self {
+    opacity: 0.8;
+}
+
+.supernote-action-item .tree-item-self {
+    transition: all 0.15s ease;
+}
+
+.supernote-action-item .tree-item-self:hover {
+    background: var(--background-modifier-hover);
+    transform: translateX(2px);
+}
+
+.supernote-action-item .tree-item-self.is-hovered {
+    background: var(--background-modifier-hover);
+}
+
+/* Connection status styling */
+.connection-status {
+    font-size: 0.85em;
+    opacity: 0.7;
+    font-weight: normal;
+}
+
+/* Spinner animation for connecting state */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Enhanced spacing for virtual folder items */
+.supernote-status-item,
+.supernote-action-item {
+    margin-bottom: 2px;
+}
+
+/* Error state styling */
+[data-supernote-virtual="true"] .connection-status {
+    color: var(--text-error);
+}
+
+/* Connected state styling */
+[data-supernote-virtual="true"][data-connection-state="connected"] .connection-status {
+    color: var(--text-success);
+}
+
+/* Connecting state styling */
+[data-supernote-virtual="true"][data-connection-state="connecting"] .connection-status {
+    color: var(--text-accent);
+}
+
+/* Selection styling for virtual files */
+.supernote-selected {
+    background-color: var(--interactive-accent) !important;
+    color: var(--text-on-accent) !important;
+}
+
+.supernote-selected .tree-item-inner,
+.supernote-selected .nav-file-tag {
+    color: var(--text-on-accent) !important;
+}
+
+/* Selection checkbox */
+.supernote-selection-checkbox {
+    display: none;
+    margin-right: 8px;
+    font-size: 12px;
+    opacity: 0.7;
+    cursor: pointer;
+    user-select: none;
+}
+
+.supernote-selection-checkbox.visible {
+    display: inline-block;
+}
+
+.supernote-selection-checkbox.checked {
+    opacity: 1;
+}
+
+/* Hover effects for selection */
+.tree-item-self:hover .supernote-selection-checkbox {
+    opacity: 1;
+}
+
+/* Modal button container */
+.modal-button-container {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.modal-button-container button {
+    padding: 8px 16px;
+}
