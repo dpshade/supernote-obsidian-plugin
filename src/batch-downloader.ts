@@ -222,7 +222,7 @@ export class BatchDownloader {
                 const converter = new ImageConverter();
                 let images: string[] = [];
                 try {
-                    images = await converter.convertToImages(supernote);
+                    images = await converter.convertToImages(supernote, undefined, uint8Array);
                 } finally {
                     converter.terminate();
                 }
@@ -253,7 +253,7 @@ export class BatchDownloader {
                     status: 'saving'
                 });
 
-                const pdfData = await this.vaultWriter.generatePDFFromSupernote(supernote);
+                const pdfData = await this.vaultWriter.generatePDFFromSupernote(supernote, uint8Array);
                 const fileName = `${baseName}.pdf`;
                 await this.saveFileToAttachments(fileName, new Uint8Array(pdfData));
             } else {

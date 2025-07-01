@@ -60,7 +60,7 @@ export class WorkerPool {
 		);
 	}
 
-	private processChunk(worker: Worker, note: SupernoteX, pageNumbers: number[]): Promise<any[]> {
+	private processChunk(worker: Worker, note: SupernoteX, pageNumbers: number[], originalBuffer: Uint8Array): Promise<any[]> {
 		return new Promise((resolve, reject) => {
 			// const startTime = Date.now();
 
@@ -80,9 +80,14 @@ export class WorkerPool {
 				reject(error);
 			};
 
+			// Pass the original buffer data to the worker
 			const message: SupernoteWorkerMessage = {
 				type: 'convert',
-				note,
+				note: {
+					buffer: Array.from(originalBuffer), // Convert Uint8Array to regular array for transfer
+					pageWidth: note.pageWidth,
+					pageHeight: note.pageHeight
+				},
 				pageNumbers
 			};
 
@@ -90,7 +95,7 @@ export class WorkerPool {
 		});
 	}
 
-	async processPages(note: SupernoteX, allPageNumbers: number[]): Promise<any[]> {
+	async processPages(note: SupernoteX, allPageNumbers: number[], originalBuffer: Uint8Array): Promise<any[]> {
 		//console.time('Total processing time');
 
 		// Split pages into chunks based on number of workers
@@ -106,7 +111,7 @@ export class WorkerPool {
 		// Process chunks in parallel using available workers
 		const results = await Promise.all(
 			chunks.map((chunk, index) =>
-				this.processChunk(this.workers[index % this.workers.length], note, chunk)
+				this.processChunk(this.workers[index % this.workers.length], note, chunk, originalBuffer)
 			)
 		);
 
@@ -127,9 +132,12 @@ export class ImageConverter {
 		this.workerPool = new WorkerPool(maxWorkers);
 	}
 
-	async convertToImages(note: SupernoteX, pageNumbers?: number[]): Promise<any[]> {
+	async convertToImages(note: SupernoteX, pageNumbers?: number[], originalBuffer?: Uint8Array): Promise<any[]> {
 		const pages = pageNumbers ?? Array.from({ length: note.pages.length }, (_, i) => i + 1);
-		const results = await this.workerPool.processPages(note, pages);
+		if (!originalBuffer) {
+			throw new Error('Original buffer is required for image conversion');
+		}
+		const results = await this.workerPool.processPages(note, pages, originalBuffer);
 		return results;
 	}
 
@@ -179,12 +187,12 @@ export class VaultWriter {
 		this.app.vault.create(filename, content);
 	}
 
-	async writeImageFiles(file: TFile, sn: SupernoteX): Promise<TFile[]> {
+	async writeImageFiles(file: TFile, sn: SupernoteX, originalBuffer: Uint8Array): Promise<TFile[]> {
 		let images: string[] = [];
 
 		const converter = new ImageConverter();
 		try {
-			images = await converter.convertToImages(sn);
+			images = await converter.convertToImages(sn, undefined, originalBuffer);
 		} finally {
 			// Clean up the worker when done
 			converter.terminate();
@@ -208,14 +216,15 @@ export class VaultWriter {
 
 	async attachNoteFiles(file: TFile) {
 		const note = await this.app.vault.readBinary(file);
-		const sn = new SupernoteX(new Uint8Array(note));
+		const buffer = new Uint8Array(note);
+		const sn = new SupernoteX(buffer);
 
-		const imgs = await this.writeImageFiles(file, sn);
+		const imgs = await this.writeImageFiles(file, sn, buffer);
 		this.writeMarkdownFile(file, sn, imgs);
 	}
 
 	// Extract the exact PDF generation logic into a reusable function
-	async generatePDFFromSupernote(sn: SupernoteX): Promise<ArrayBuffer> {
+	async generatePDFFromSupernote(sn: SupernoteX, originalBuffer: Uint8Array): Promise<ArrayBuffer> {
 		// Create PDF document
 		const pdf = new jsPDF({
 			orientation: 'portrait',
@@ -227,7 +236,7 @@ export class VaultWriter {
 		const converter = new ImageConverter();
 		let images: string[] = [];
 		try {
-			images = await converter.convertToImages(sn);
+			images = await converter.convertToImages(sn, undefined, originalBuffer);
 		} finally {
 			converter.terminate();
 		}
@@ -254,10 +263,11 @@ export class VaultWriter {
 
 	async exportToPDF(file: TFile) {
 		const note = await this.app.vault.readBinary(file);
-		const sn = new SupernoteX(new Uint8Array(note));
+		const buffer = new Uint8Array(note);
+		const sn = new SupernoteX(buffer);
 
 		// Use the extracted PDF generation function
-		const pdfOutput = await this.generatePDFFromSupernote(sn);
+		const pdfOutput = await this.generatePDFFromSupernote(sn, buffer);
 
 		// Generate filename and save
 		const filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}.pdf`);
@@ -372,19 +382,20 @@ export class SupernoteView extends FileView {
 
 	private async loadNoteData(file: TFile): Promise<void> {
 		const note = await this.app.vault.readBinary(file);
-		this.sn = new SupernoteX(new Uint8Array(note));
+		const buffer = new Uint8Array(note);
+		this.sn = new SupernoteX(buffer);
 
 		// Convert to images for PNG view
 		const converter = new ImageConverter();
 		try {
-			this.images = await converter.convertToImages(this.sn);
+			this.images = await converter.convertToImages(this.sn, undefined, buffer);
 		} finally {
 			converter.terminate();
 		}
 
 		// Generate PDF data URL for PDF view
 		if (this.sn.pages.length > 0) {
-			const pdfBuffer = await vw.generatePDFFromSupernote(this.sn);
+			const pdfBuffer = await vw.generatePDFFromSupernote(this.sn, buffer);
 			const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
 			this.pdfDataUrl = URL.createObjectURL(blob);
 		}
@@ -707,6 +718,207 @@ export default class SupernotePlugin extends Plugin {
 		this.registerView(
 			BATCH_FILE_VIEW_TYPE,
 			(leaf) => new BatchFilePane(leaf, this.app, this.settings)
+		);
+
+		// Register files menu event listener for right-click context menu
+		this.registerEvent(
+			this.app.workspace.on('files-menu', (menu, files: TFile[]) => {
+				console.log('Files menu event triggered with files:', files.map(f => f.name));
+
+				// Filter for .note files only
+				const noteFiles = files.filter(file => file.extension === 'note');
+				console.log('Note files found:', noteFiles.map(f => f.name));
+
+				if (noteFiles.length === 0) return;
+
+				// Ensure VaultWriter is initialized
+				if (!vw) {
+					console.error('VaultWriter not initialized');
+					return;
+				}
+
+				console.log('Adding Supernote menu items for', noteFiles.length, 'files');
+
+				// Add separator
+				menu.addSeparator();
+
+				// Add a simple test menu item first
+				menu.addItem((item) => {
+					item
+						.setTitle(`Supernote: ${noteFiles.length} file${noteFiles.length > 1 ? 's' : ''} selected`)
+						.setIcon('file-text')
+						.onClick(() => {
+							new Notice(`Supernote menu clicked for ${noteFiles.length} file${noteFiles.length > 1 ? 's' : ''}`);
+						});
+				});
+
+				// Add Supernote menu items
+				menu.addItem((item) => {
+					item
+						.setTitle(`Attach ${noteFiles.length > 1 ? 'all' : 'as'} PNG images`)
+						.setIcon('image')
+						.onClick(async () => {
+							try {
+								for (const file of noteFiles) {
+									await vw.attachNoteFiles(file);
+								}
+								new Notice(`Attached ${noteFiles.length} file${noteFiles.length > 1 ? 's' : ''} as PNG images`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				menu.addItem((item) => {
+					item
+						.setTitle(`Attach ${noteFiles.length > 1 ? 'all' : 'as'} PDF`)
+						.setIcon('file-text')
+						.onClick(async () => {
+							try {
+								for (const file of noteFiles) {
+									await vw.exportToPDF(file);
+								}
+								new Notice(`Attached ${noteFiles.length} file${noteFiles.length > 1 ? 's' : ''} as PDF`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				menu.addItem((item) => {
+					item
+						.setTitle(`Attach ${noteFiles.length > 1 ? 'all' : 'as'} Markdown`)
+						.setIcon('document')
+						.onClick(async () => {
+							try {
+								for (const file of noteFiles) {
+									await vw.attachMarkdownFile(file);
+								}
+								new Notice(`Attached ${noteFiles.length} file${noteFiles.length > 1 ? 's' : ''} as Markdown`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				// Add separator for advanced options
+				menu.addSeparator();
+
+				// Open in Supernote viewer (only for single file)
+				if (noteFiles.length === 1) {
+					menu.addItem((item) => {
+						item
+							.setTitle('Open in Supernote viewer')
+							.setIcon('eye')
+							.onClick(async () => {
+								const leaf = this.app.workspace.getRightLeaf(false);
+								if (leaf) {
+									await leaf.setViewState({
+										type: VIEW_TYPE_SUPERNOTE,
+										active: true,
+										state: { file: noteFiles[0].path }
+									});
+									this.app.workspace.revealLeaf(leaf);
+								}
+							});
+					});
+				}
+			})
+		);
+
+		// Register file menu event listener for single file right-click context menu
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file: TFile) => {
+				console.log('File menu event triggered with file:', file.name);
+
+				// Check if it's a .note file
+				if (file.extension !== 'note') return;
+
+				// Ensure VaultWriter is initialized
+				if (!vw) {
+					console.error('VaultWriter not initialized');
+					return;
+				}
+
+				console.log('Adding Supernote menu items for single file:', file.name);
+
+				// Add separator
+				menu.addSeparator();
+
+				// Add a simple test menu item first
+				menu.addItem((item) => {
+					item
+						.setTitle('Supernote: Single file selected')
+						.setIcon('file-text')
+						.onClick(() => {
+							new Notice(`Supernote menu clicked for ${file.name}`);
+						});
+				});
+
+				// Add Supernote menu items
+				menu.addItem((item) => {
+					item
+						.setTitle('Attach as PNG images')
+						.setIcon('image')
+						.onClick(async () => {
+							try {
+								await vw.attachNoteFiles(file);
+								new Notice(`Attached ${file.name} as PNG images`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				menu.addItem((item) => {
+					item
+						.setTitle('Attach as PDF')
+						.setIcon('file-text')
+						.onClick(async () => {
+							try {
+								await vw.exportToPDF(file);
+								new Notice(`Attached ${file.name} as PDF`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				menu.addItem((item) => {
+					item
+						.setTitle('Attach as Markdown')
+						.setIcon('document')
+						.onClick(async () => {
+							try {
+								await vw.attachMarkdownFile(file);
+								new Notice(`Attached ${file.name} as Markdown`);
+							} catch (err: any) {
+								new ErrorModal(this.app, err).open();
+							}
+						});
+				});
+
+				// Add separator for advanced options
+				menu.addSeparator();
+
+				// Open in Supernote viewer
+				menu.addItem((item) => {
+					item
+						.setTitle('Open in Supernote viewer')
+						.setIcon('eye')
+						.onClick(async () => {
+							const leaf = this.app.workspace.getRightLeaf(false);
+							if (leaf) {
+								await leaf.setViewState({
+									type: VIEW_TYPE_SUPERNOTE,
+									active: true,
+									state: { file: file.path }
+								});
+								this.app.workspace.revealLeaf(leaf);
+							}
+						});
+				});
+			})
 		);
 
 		this.addCommand({
