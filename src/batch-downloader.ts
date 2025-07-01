@@ -1,7 +1,7 @@
 import { App, Notice, TFile, normalizePath } from 'obsidian';
 import { SupernoteFile } from './batch-file-manager';
 // @ts-ignore
-import { SupernoteX } from 'supernote-typescript';
+import { SupernoteX } from 'supernote';
 import { VaultWriter, ImageConverter } from './main';
 
 export interface DownloadProgress {

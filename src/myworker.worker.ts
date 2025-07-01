@@ -1,7 +1,7 @@
 import { installAtPolyfill } from './polyfills';
 installAtPolyfill();
 
-import { SupernoteX, toImage } from 'supernote-typescript';
+import { SupernoteX, toImage } from 'supernote';
 
 export interface SupernoteWorkerMessage {
     type: 'convert';

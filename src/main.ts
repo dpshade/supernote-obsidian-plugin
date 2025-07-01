@@ -1,7 +1,7 @@
 import { installAtPolyfill } from './polyfills';
 import { App, Modal, TFile, Plugin, Editor, MarkdownView, WorkspaceLeaf, FileView, Notice } from 'obsidian';
 import { SupernotePluginSettings, SupernoteSettingTab, DEFAULT_SETTINGS } from './settings';
-import { SupernoteX, fetchMirrorFrame } from 'supernote-typescript';
+import { SupernoteX, fetchMirrorFrame } from 'supernote';
 import { DownloadListModal, UploadListModal } from './FileListModal';
 import { jsPDF } from 'jspdf';
 import { SupernoteWorkerMessage, SupernoteWorkerResponse } from './myworker.worker';
