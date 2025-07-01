@@ -271,6 +271,14 @@ export const VIEW_TYPE_SUPERNOTE = "supernote-view";
 export class SupernoteView extends FileView {
 	file: TFile;
 	settings: SupernotePluginSettings;
+	private displayMode: 'png' | 'pdf';
+	private pdfDataUrl: string | null = null;
+	private images: string[] = [];
+	private sn: SupernoteX | null = null;
+	private contentArea: HTMLElement | null = null;
+	private pngBtn: HTMLButtonElement | null = null;
+	private pdfBtn: HTMLButtonElement | null = null;
+
 	constructor(leaf: WorkspaceLeaf, settings: SupernotePluginSettings) {
 		super(leaf);
 		this.settings = settings;
@@ -288,123 +296,399 @@ export class SupernoteView extends FileView {
 	}
 
 	async onLoadFile(file: TFile): Promise<void> {
-		const container = this.containerEl.children[1];
+		this.file = file;
+		this.displayMode = this.settings.defaultDisplayMode;
+
+		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
-		container.createEl("h1", { text: file.name });
 
+		// Create header with file info and controls
+		this.createHeader(container, file);
+
+		// Load and parse the note file
+		await this.loadNoteData(file);
+
+		// Create the main content area
+		this.createContentArea(container);
+
+		// Render the content based on current display mode
+		await this.renderContent();
+	}
+
+	private createHeader(container: HTMLElement, file: TFile): void {
+		const header = container.createDiv('supernote-view-header');
+
+		// File title
+		header.createEl('h1', {
+			text: file.name,
+			cls: 'supernote-view-title'
+		});
+
+		// Display mode toggle
+		const controlsEl = header.createDiv('supernote-view-controls');
+
+		// Display mode toggle buttons
+		const modeGroup = controlsEl.createDiv('button-group');
+
+		const pngBtn = modeGroup.createEl('button', {
+			text: 'PNG View',
+			cls: 'mod-cta'
+		});
+		pngBtn.addEventListener('click', () => this.switchToPngMode());
+
+		const pdfBtn = modeGroup.createEl('button', {
+			text: 'PDF View',
+			cls: ''
+		});
+		pdfBtn.addEventListener('click', () => this.switchToPdfMode());
+
+		// Store references for updating active state
+		this.pngBtn = pngBtn as HTMLButtonElement;
+		this.pdfBtn = pdfBtn as HTMLButtonElement;
+
+		// Export controls
+		if (this.settings.showExportButtons) {
+			const exportGroup = controlsEl.createDiv('button-group');
+
+			const exportPngBtn = exportGroup.createEl('button', {
+				text: 'Export PNG',
+				cls: 'mod-cta'
+			});
+			exportPngBtn.addEventListener('click', () => this.exportAsPng());
+
+			const exportPdfBtn = exportGroup.createEl('button', {
+				text: 'Export PDF',
+				cls: 'mod-cta'
+			});
+			exportPdfBtn.addEventListener('click', () => this.exportAsPdf());
+
+			const exportMarkdownBtn = exportGroup.createEl('button', {
+				text: 'Export Markdown',
+				cls: 'mod-cta'
+			});
+			exportMarkdownBtn.addEventListener('click', () => this.exportAsMarkdown());
+		}
+	}
+
+	private async loadNoteData(file: TFile): Promise<void> {
 		const note = await this.app.vault.readBinary(file);
-		const sn = new SupernoteX(new Uint8Array(note));
-		let images: string[] = [];
+		this.sn = new SupernoteX(new Uint8Array(note));
 
+		// Convert to images for PNG view
 		const converter = new ImageConverter();
 		try {
-			images = await converter.convertToImages(sn);
+			this.images = await converter.convertToImages(this.sn);
 		} finally {
-			// Clean up the worker when done
 			converter.terminate();
 		}
 
-		if (this.settings.showExportButtons) {
-			const exportNoteBtn = container.createEl("p").createEl("button", {
-				text: "Attach markdown to vault",
-				cls: "mod-cta",
-			});
+		// Generate PDF data URL for PDF view
+		if (this.sn.pages.length > 0) {
+			const pdfBuffer = await vw.generatePDFFromSupernote(this.sn);
+			const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+			this.pdfDataUrl = URL.createObjectURL(blob);
+		}
+	}
 
-			exportNoteBtn.addEventListener("click", async () => {
-				vw.attachMarkdownFile(file);
-			});
+	private createContentArea(container: HTMLElement): void {
+		this.contentArea = container.createDiv('supernote-view-content');
+	}
 
-			const exportAllBtn = container.createEl("p").createEl("button", {
-				text: "Attach markdown and images to vault",
-				cls: "mod-cta",
-			});
+	private async renderContent(): Promise<void> {
+		if (!this.contentArea) return;
 
-			exportAllBtn.addEventListener("click", async () => {
-				vw.attachNoteFiles(file);
-			});
+		this.contentArea.empty();
 
-			const exportPDFBtn = container.createEl("p").createEl("button", {
-				text: "Attach as PDF",
-				cls: "mod-cta",
-			});
+		if (this.displayMode === 'png') {
+			await this.renderPngView();
+		} else {
+			await this.renderPdfView();
+		}
+	}
 
-			exportPDFBtn.addEventListener("click", async () => {
-				vw.exportToPDF(file);
-			});
+	private async renderPngView(): Promise<void> {
+		if (!this.sn || !this.images.length || !this.contentArea) return;
+
+		// Create table of contents if multiple pages
+		if (this.images.length > 1 && this.settings.showTOC) {
+			this.createTableOfContents();
 		}
 
-		if (images.length > 1 && this.settings.showTOC) {
-			const atoc = container.createEl("a");
-			atoc.id = "toc";
-			atoc.createEl("h2", { text: "Table of contents" });
-			const ul = container.createEl("ul");
-			for (let i = 0; i < images.length; i++) {
-				const a = ul.createEl("li").createEl("a");
-				a.href = `#page${i + 1}`
-				a.text = `Page ${i + 1}`
+		// Render each page
+		for (let i = 0; i < this.images.length; i++) {
+			const pageContainer = this.contentArea.createEl("div", {
+				cls: 'supernote-page-container',
+			});
+
+			// Page header with navigation
+			if (this.images.length > 1) {
+				this.createPageHeader(pageContainer, i);
 			}
+
+			// Page content
+			const pageContent = pageContainer.createDiv('supernote-page-content');
+
+			// Show recognized text if available
+			if (this.sn.pages[i].text !== undefined && this.sn.pages[i].text.length > 0) {
+				this.createTextSection(pageContent, i);
+			}
+
+			// Show page image
+			this.createImageSection(pageContent, i);
 		}
+	}
 
-		for (let i = 0; i < images.length; i++) {
-			const imageDataUrl = images[i];
+	private async renderPdfView(): Promise<void> {
+		if (!this.pdfDataUrl || !this.contentArea) return;
 
-			const pageContainer = container.createEl("div", {
-				cls: 'page-container',
-			})
-			pageContainer.setAttr('style', 'max-width: ' + this.settings.noteImageMaxDim + 'px;')
+		const pdfContainer = this.contentArea.createDiv('supernote-pdf-container');
 
-			if (images.length > 1 && this.settings.showTOC) {
-				const a = pageContainer.createEl("a");
-				a.id = `page${i + 1}`;
-				a.href = "#toc";
-				a.createEl("h3", { text: `Page ${i + 1}` });
+		pdfContainer.createEl('embed', {
+			attr: {
+				src: this.pdfDataUrl,
+				type: 'application/pdf',
+				width: '100%',
+				height: '800px'
 			}
+		});
 
-			// Show the text of the page, if any
-			if (sn.pages[i].text !== undefined && sn.pages[i].text.length > 0) {
-				let text;
+		// Add download link
+		const downloadLink = pdfContainer.createEl('a', {
+			text: 'Download PDF',
+			cls: 'mod-cta'
+		});
+		downloadLink.href = this.pdfDataUrl;
+		downloadLink.download = `${this.file.basename}.pdf`;
+	}
 
-				// If Collapse Text setting is enabled, place the text into an HTML `details` element
-				if (this.settings.collapseRecognizedText) {
-					text = pageContainer.createEl('details', {
-						text: '\n' + processSupernoteText(sn.pages[i].text, this.settings),
-						cls: 'page-recognized-text',
-					});
-					text.createEl('summary', { text: `Page ${i + 1} Recognized Text` });
-				} else {
-					text = pageContainer.createEl('div', {
-						text: processSupernoteText(sn.pages[i].text, this.settings),
-						cls: 'page-recognized-text',
-					});
-				}
-			}
+	private createTableOfContents(): void {
+		if (!this.contentArea) return;
 
-			// Show the img of the page
-			const imgElement = pageContainer.createEl("img");
-			imgElement.src = imageDataUrl;
-			if (this.settings.invertColorsWhenDark) {
-				imgElement.addClass("supernote-invert-dark");
-			}
-			imgElement.setAttr('style', 'max-height: ' + this.settings.noteImageMaxDim + 'px;')
-			imgElement.draggable = true;
+		const tocContainer = this.contentArea.createDiv('supernote-toc-container');
+		tocContainer.createEl('h2', { text: 'Table of Contents' });
 
-			// Create a button to save image to vault
-			if (this.settings.showExportButtons) {
-				const saveButton = pageContainer.createEl("button", {
-					text: "Save image to vault",
-					cls: "mod-cta",
+		const tocList = tocContainer.createEl('ul', { cls: 'supernote-toc-list' });
+
+		for (let i = 0; i < this.images.length; i++) {
+			const tocItem = tocList.createEl('li');
+			tocItem.createEl('a', {
+				text: `Page ${i + 1}`,
+				attr: { href: `#page-${i + 1}` }
+			});
+		}
+	}
+
+	private createPageHeader(container: HTMLElement, pageIndex: number): void {
+		const header = container.createDiv('supernote-page-header');
+
+		header.createEl('h3', {
+			text: `Page ${pageIndex + 1}`,
+			attr: { id: `page-${pageIndex + 1}` }
+		});
+
+		// Navigation buttons for multi-page documents
+		if (this.images.length > 1) {
+			const navGroup = header.createDiv('supernote-page-nav');
+
+			if (pageIndex > 0) {
+				const prevBtn = navGroup.createEl('button', {
+					text: '← Previous',
+					cls: 'mod-cta'
 				});
+				prevBtn.addEventListener('click', () => this.scrollToPage(pageIndex - 1));
+			}
 
-				saveButton.addEventListener("click", async () => {
-					const filename = await this.app.fileManager.getAvailablePathForAttachment(`${file.basename}-${i}.png`);
-					const buffer = dataUrlToBuffer(imageDataUrl);
-					await this.app.vault.createBinary(filename, buffer);
+			if (pageIndex < this.images.length - 1) {
+				const nextBtn = navGroup.createEl('button', {
+					text: 'Next →',
+					cls: 'mod-cta'
 				});
+				nextBtn.addEventListener('click', () => this.scrollToPage(pageIndex + 1));
 			}
 		}
 	}
 
-	async onClose() { }
+	private createTextSection(container: HTMLElement, pageIndex: number): void {
+		if (!this.sn) return;
+
+		const textContainer = container.createDiv('supernote-text-section');
+
+		if (this.settings.collapseRecognizedText) {
+			const details = textContainer.createEl('details', {
+				cls: 'supernote-text-details'
+			});
+
+			details.createEl('summary', {
+				text: `Page ${pageIndex + 1} Recognized Text`
+			});
+
+			details.createEl('div', {
+				text: processSupernoteText(this.sn.pages[pageIndex].text, this.settings),
+				cls: 'supernote-text-content'
+			});
+		} else {
+			textContainer.createEl('div', {
+				text: processSupernoteText(this.sn.pages[pageIndex].text, this.settings),
+				cls: 'supernote-text-content'
+			});
+		}
+	}
+
+	private createImageSection(container: HTMLElement, pageIndex: number): void {
+		const imageContainer = container.createDiv('supernote-image-section');
+
+		const imgElement = imageContainer.createEl("img", {
+			attr: {
+				src: this.images[pageIndex],
+				alt: `Page ${pageIndex + 1}`,
+				draggable: 'true'
+			}
+		});
+
+		// Apply styling
+		imgElement.style.maxWidth = `${this.settings.noteImageMaxDim}px`;
+		imgElement.style.maxHeight = `${this.settings.noteImageMaxDim}px`;
+
+		if (this.settings.invertColorsWhenDark) {
+			imgElement.addClass("supernote-invert-dark");
+		}
+
+		// Add image controls
+		if (this.settings.showExportButtons) {
+			const imageControls = imageContainer.createDiv('supernote-image-controls');
+
+			const saveBtn = imageControls.createEl('button', {
+				text: 'Save Image',
+				cls: 'mod-cta'
+			});
+			saveBtn.addEventListener('click', () => this.savePageImage(pageIndex));
+
+			const zoomBtn = imageControls.createEl('button', {
+				text: 'Zoom',
+				cls: 'mod-cta'
+			});
+			zoomBtn.addEventListener('click', () => this.zoomImage(imgElement));
+		}
+	}
+
+	private switchToPngMode(): void {
+		this.displayMode = 'png';
+		this.updateModeButtons();
+		this.renderContent();
+	}
+
+	private switchToPdfMode(): void {
+		this.displayMode = 'pdf';
+		this.updateModeButtons();
+		this.renderContent();
+	}
+
+	private updateModeButtons(): void {
+		if (this.pngBtn && this.pdfBtn) {
+			this.pngBtn.className = this.displayMode === 'png' ? 'mod-cta' : '';
+			this.pdfBtn.className = this.displayMode === 'pdf' ? 'mod-cta' : '';
+		}
+	}
+
+	private scrollToPage(pageIndex: number): void {
+		if (!this.contentArea) return;
+
+		const targetElement = this.contentArea.querySelector(`#page-${pageIndex + 1}`);
+		if (targetElement) {
+			targetElement.scrollIntoView({ behavior: 'smooth' });
+		}
+	}
+
+	private async savePageImage(pageIndex: number): Promise<void> {
+		const filename = await this.app.fileManager.getAvailablePathForAttachment(
+			`${this.file.basename}-page-${pageIndex + 1}.png`
+		);
+		const buffer = dataUrlToBuffer(this.images[pageIndex]);
+		await this.app.vault.createBinary(filename, buffer);
+		new Notice(`Saved ${filename}`);
+	}
+
+	private zoomImage(imgElement: HTMLImageElement): void {
+		// Create a modal with the full-size image
+		const modal = new ImageZoomModal(this.app, imgElement.src, this.file.basename);
+		modal.open();
+	}
+
+	private async exportAsPng(): Promise<void> {
+		if (!this.file) return;
+		await vw.attachNoteFiles(this.file);
+		new Notice('Exported as PNG images');
+	}
+
+	private async exportAsPdf(): Promise<void> {
+		if (!this.file) return;
+		await vw.exportToPDF(this.file);
+		new Notice('Exported as PDF');
+	}
+
+	private async exportAsMarkdown(): Promise<void> {
+		if (!this.file) return;
+		await vw.attachMarkdownFile(this.file);
+		new Notice('Exported as Markdown');
+	}
+
+	async onClose() {
+		// Clean up PDF data URL
+		if (this.pdfDataUrl) {
+			URL.revokeObjectURL(this.pdfDataUrl);
+		}
+	}
+}
+
+// Helper modal for image zooming
+class ImageZoomModal extends Modal {
+	constructor(app: App, private imageSrc: string, private filename: string) {
+		super(app);
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.addClass('supernote-zoom-modal');
+
+		const container = contentEl.createDiv('supernote-zoom-container');
+
+		const img = container.createEl('img', {
+			attr: {
+				src: this.imageSrc,
+				alt: this.filename
+			}
+		});
+
+		// Make image responsive but allow zooming
+		img.style.maxWidth = '100%';
+		img.style.maxHeight = '90vh';
+		img.style.cursor = 'zoom-in';
+
+		// Add zoom functionality
+		let isZoomed = false;
+		img.addEventListener('click', () => {
+			if (isZoomed) {
+				img.style.transform = 'scale(1)';
+				img.style.cursor = 'zoom-in';
+			} else {
+				img.style.transform = 'scale(2)';
+				img.style.cursor = 'zoom-out';
+			}
+			isZoomed = !isZoomed;
+		});
+
+		// Add close button
+		const closeBtn = container.createEl('button', {
+			text: 'Close',
+			cls: 'mod-cta'
+		});
+		closeBtn.addEventListener('click', () => this.close());
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
 }
 
 export default class SupernotePlugin extends Plugin {

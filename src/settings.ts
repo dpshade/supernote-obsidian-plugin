@@ -12,6 +12,7 @@ export interface SupernotePluginSettings extends CustomDictionarySettings {
     showExportButtons: boolean;
     collapseRecognizedText: boolean,
     noteImageMaxDim: number;
+    defaultDisplayMode: 'png' | 'pdf';
 }
 
 export const DEFAULT_SETTINGS: SupernotePluginSettings = {
@@ -21,7 +22,8 @@ export const DEFAULT_SETTINGS: SupernotePluginSettings = {
     showExportButtons: true,
     collapseRecognizedText: false,
     noteImageMaxDim: 800, // Sensible default for Nomad pages to be legible but not too big. Unit: px
-	...CUSTOM_DICTIONARY_DEFAULT_SETTINGS,
+    defaultDisplayMode: 'png', // Default to PNG view for better performance
+    ...CUSTOM_DICTIONARY_DEFAULT_SETTINGS,
 }
 
 export class SupernoteSettingTab extends PluginSettingTab {
@@ -126,7 +128,20 @@ export class SupernoteSettingTab extends PluginSettingTab {
                 })
             );
 
-		// Add custom dictionary settings to the settings tab
-		createCustomDictionarySettingsUI(containerEl, this.plugin);
+        new Setting(containerEl)
+            .setName('Default display mode')
+            .setDesc('Choose the default view mode when opening .note files')
+            .addDropdown(dropdown => dropdown
+                .addOption('png', 'PNG Images (Recommended)')
+                .addOption('pdf', 'PDF Document')
+                .setValue(this.plugin.settings.defaultDisplayMode)
+                .onChange(async (value: 'png' | 'pdf') => {
+                    this.plugin.settings.defaultDisplayMode = value;
+                    await this.plugin.saveSettings();
+                })
+            );
+
+        // Add custom dictionary settings to the settings tab
+        createCustomDictionarySettingsUI(containerEl, this.plugin);
     }
 }

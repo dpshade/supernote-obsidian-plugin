@@ -342,3 +342,323 @@ div.page-container {
         font-size: 11px;
     }
 }
+
+/* Enhanced SupernoteView Styles */
+.supernote-view-header {
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.supernote-view-title {
+    margin: 0 0 12px 0;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.supernote-view-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.supernote-view-controls .button-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.supernote-view-controls button {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.supernote-view-controls button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border-color: var(--background-modifier-border-hover);
+}
+
+.supernote-view-controls button.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+    font-weight: 500;
+}
+
+.supernote-view-controls button.mod-cta:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.supernote-view-content {
+    padding: 0 16px 16px 16px;
+}
+
+/* PNG View Styles */
+.supernote-toc-container {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.supernote-toc-container h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.2em;
+    color: var(--text-normal);
+}
+
+.supernote-toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.supernote-toc-list li {
+    margin: 4px 0;
+}
+
+.supernote-toc-list a {
+    color: var(--text-accent);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+}
+
+.supernote-toc-list a:hover {
+    background: var(--background-modifier-hover);
+}
+
+.supernote-page-container {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.supernote-page-header {
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.supernote-page-header h3 {
+    margin: 0;
+    font-size: 1.1em;
+    color: var(--text-normal);
+}
+
+.supernote-page-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.supernote-page-nav button {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.supernote-page-nav button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.supernote-page-nav button.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+.supernote-page-content {
+    padding: 16px;
+}
+
+.supernote-text-section {
+    margin-bottom: 16px;
+}
+
+.supernote-text-details {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.supernote-text-details summary {
+    background: var(--background-secondary);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-normal);
+    transition: background-color 0.15s ease;
+}
+
+.supernote-text-details summary:hover {
+    background: var(--background-modifier-hover);
+}
+
+.supernote-text-content {
+    padding: 12px;
+    background: var(--background-primary);
+    white-space: pre-line;
+    user-select: text;
+    line-height: 1.5;
+    color: var(--text-normal);
+}
+
+.supernote-image-section {
+    text-align: center;
+}
+
+.supernote-image-section img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.supernote-image-controls {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.supernote-image-controls button {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.supernote-image-controls button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.supernote-image-controls button.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+/* PDF View Styles */
+.supernote-pdf-container {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.supernote-pdf-container embed {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+.supernote-pdf-container a {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: background-color 0.15s ease;
+}
+
+.supernote-pdf-container a:hover {
+    background: var(--interactive-accent-hover);
+}
+
+/* Image Zoom Modal Styles */
+.supernote-zoom-modal {
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.supernote-zoom-container {
+    text-align: center;
+    padding: 20px;
+}
+
+.supernote-zoom-container img {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.supernote-zoom-container button {
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.supernote-zoom-container button:hover {
+    background: var(--interactive-accent-hover);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .supernote-view-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .supernote-view-controls .button-group {
+        justify-content: center;
+    }
+
+    .supernote-page-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .supernote-page-nav {
+        justify-content: center;
+    }
+
+    .supernote-image-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .supernote-zoom-modal {
+        max-width: 95vw;
+        max-height: 95vh;
+    }
+}
