@@ -69,32 +69,57 @@ This enhanced version adds powerful batch file management capabilities to the or
    - "Export this Supernote note as PDF"
    - "Export this Supernote note as a markdown file attachment"
 
-### 🆕 Batch File Management
+### 🆕 Virtual Folder Integration
 
-#### Opening the Batch File Pane
-1. Use the command palette: `Ctrl/Cmd + Shift + P`
-2. Search for "Open Supernote Batch File Manager"
-3. The batch file pane will open in the right sidebar
+#### Accessing the Virtual Folder
+1. The "Supernote Device" folder appears in your file explorer sidebar
+2. Click to expand and browse your Supernote files
+3. No separate pane needed - everything is integrated into the file explorer
 
-#### Using the Batch File Pane
-1. **Navigation**: Use the up arrow to navigate to parent folders
-2. **File Selection**: Click checkboxes to select multiple files
-3. **Selection Controls**: 
-   - Use "Select All" to select all files in the current directory
-   - Use "Clear" to deselect all files
+#### Using the Virtual Folder
+1. **Navigation**: Click on folders to navigate through your Supernote directory structure
+2. **File Selection**: 
+   - Click checkboxes to select multiple files
+   - Use Ctrl/Cmd + click for individual selection
+   - Use Shift + click for range selection
+3. **Context Menus**: Right-click on files or folders for additional options
 4. **Batch Operations**:
-   - **Download Selected**: Download all selected files individually
-   - **Create PDF**: Generate a single PDF containing all selected notes
-   - **Attach All**: Create a PDF and attach it to the current note
+   - **Convert to PDF**: Convert selected files to PDF format
+   - **Convert to PNG**: Convert selected files to PNG images
+   - **Download Originals**: Download the original .note files
 
 #### Batch Operations Workflow
-1. Open the batch file pane
+1. Expand the "Supernote Device" folder in the file explorer
 2. Navigate to the folder containing your Supernote files
-3. Select the files you want to process using checkboxes
-4. Choose your desired operation:
-   - **Download**: Files are downloaded individually to your vault
-   - **PDF**: A single PDF is created with all selected notes as pages
-   - **Attach**: A PDF is created and automatically linked to your current note
+3. Select files using checkboxes or multi-select
+4. Right-click and choose your desired operation:
+   - **Convert to PDF**: Creates PDF files in your vault
+   - **Convert to PNG**: Creates PNG image files in your vault
+   - **Download Originals**: Downloads the original .note files
+
+### 🔧 Available Commands
+
+Use the command palette (`Ctrl/Cmd + Shift + P`) to access these Supernote commands:
+
+#### Connection Management
+- **Connect to Supernote Device**: Manually initiate connection to your Supernote
+- **Check Supernote Connection Status**: Display current connection state and any errors
+- **Refresh Supernote Virtual Folder**: Reload the file list from your device
+
+#### Virtual Folder Control
+- **Expand Supernote Virtual Folder**: Automatically expand the virtual folder in file explorer
+- **Clear Supernote File Selections**: Clear all selected files in the virtual folder
+- **Show Selected Supernote Files Count**: Display how many files are currently selected
+
+#### Settings & Configuration
+- **Open Supernote Plugin Settings**: Quickly access plugin configuration
+
+#### File Operations
+- **Upload the current file to a Supernote device**: Upload active file to Supernote
+- **Insert a Supernote screen mirroring image as attachment**: Capture and insert current screen
+- **Export this Supernote note as a markdown and PNG files as attachments**: Convert .note to markdown + images
+- **Export this Supernote note as PDF**: Convert .note to PDF
+- **Export this Supernote note as a markdown file attachment**: Convert .note to markdown only
 
 ## File Format Support
 
@@ -107,7 +132,7 @@ This enhanced version adds powerful batch file management capabilities to the or
 - Ensure Direct Connect is enabled on your Supernote
 - Verify the IP address is correct in plugin settings
 - Check that both devices are on the same network
-- Try refreshing the connection using the refresh button in the batch pane
+- Try refreshing the connection using the refresh button in the virtual folder
 
 ### File Processing Issues
 - Large files may take longer to process
@@ -115,7 +140,7 @@ This enhanced version adds powerful batch file management capabilities to the or
 - Check that the Supernote device is not in sleep mode
 
 ### Performance Tips
-- Use the batch pane for multiple files instead of individual downloads
+- Use the virtual folder for multiple files instead of individual downloads
 - Close other applications to free up system resources
 - Consider processing files in smaller batches for very large collections
 
@@ -181,14 +206,14 @@ MIT License - see LICENSE file for details
 ## Changelog
 
 ### Version 2.9.0 - Enhanced by Dylan Shade
-- 🆕 Added batch file management pane
-- 🆕 Multi-file selection with checkboxes
+- 🆕 Added virtual folder integration in file explorer
+- 🆕 Multi-file selection with checkboxes and keyboard shortcuts
+- 🆕 Context menu operations for batch processing
 - 🆕 Concurrent batch downloads with progress tracking
-- 🆕 Batch PDF generation for multiple notes
-- 🆕 One-click attachment of multiple files as PDF
-- 🆕 Improved UI following Obsidian design patterns
+- 🆕 Batch PDF and PNG conversion for multiple notes
 - 🆕 Native Obsidian file tree navigation
-- 🆕 Proper status bar and progress indicators
+- 🆕 Improved UI following Obsidian design patterns
+- 🆕 Enhanced command palette with connection management and folder control
 - 🆕 Development build tools for direct vault installation
 
 ### Previous Versions (Original Plugin)

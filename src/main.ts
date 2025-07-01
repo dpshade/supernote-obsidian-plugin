@@ -7,7 +7,7 @@ import { jsPDF } from 'jspdf';
 import { SupernoteWorkerMessage, SupernoteWorkerResponse } from './myworker.worker';
 import Worker from 'myworker.worker';
 import { replaceTextWithCustomDictionary } from './customDictionary';
-import { BatchFilePane, BATCH_FILE_VIEW_TYPE } from './batch-file-pane';
+
 import { VirtualFolderProvider } from './virtual-folder-provider';
 import { BatchFileManager } from './batch-file-manager';
 
@@ -701,11 +701,7 @@ export default class SupernotePlugin extends Plugin {
 
 		this.addSettingTab(new SupernoteSettingTab(this.app, this));
 
-		// Register batch file pane view
-		this.registerView(
-			BATCH_FILE_VIEW_TYPE,
-			(leaf) => new BatchFilePane(leaf, this.app, this.settings)
-		);
+
 
 		// Register files menu event listener for right-click context menu
 		this.registerEvent(
@@ -935,31 +931,75 @@ export default class SupernotePlugin extends Plugin {
 			}
 		});
 
-		// New batch file management commands
+		// Supernote connection and management commands
+
 		this.addCommand({
-			id: 'open-supernote-batch-pane',
-			name: 'Open Supernote Batch File Manager',
-			callback: () => {
+			id: 'supernote-connect-device',
+			name: 'Connect to Supernote Device',
+			callback: async () => {
 				if (this.settings.directConnectIP.length === 0) {
 					new DirectConnectErrorModal(this.app, this.settings, new Error("IP is unset")).open();
 					return;
 				}
-				this.activateBatchPane();
+				if (this.virtualFolderProvider) {
+					await this.virtualFolderProvider.connectToDevice();
+					new Notice('Connecting to Supernote device...');
+				}
 			}
 		});
 
 		this.addCommand({
-			id: 'attach-selected-supernote-files',
-			name: 'Attach selected Supernote files as PDF',
+			id: 'supernote-check-status',
+			name: 'Check Supernote Connection Status',
 			callback: () => {
+				if (this.virtualFolderProvider) {
+					const status = this.virtualFolderProvider.getConnectionStatus();
+					let message = `Status: ${status.state}`;
+					if (status.error) {
+						message += ` - ${status.error}`;
+					}
+					new Notice(message);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'supernote-refresh-folder',
+			name: 'Refresh Supernote Virtual Folder',
+			callback: async () => {
 				if (this.settings.directConnectIP.length === 0) {
 					new DirectConnectErrorModal(this.app, this.settings, new Error("IP is unset")).open();
 					return;
 				}
-				// This will be handled by the batch pane itself
-				new Notice('Please use the Batch File Manager to select and attach files');
+				if (this.virtualFolderProvider) {
+					await this.virtualFolderProvider.refreshVirtualFolder();
+					new Notice('Refreshing Supernote folder...');
+				}
 			}
 		});
+
+		this.addCommand({
+			id: 'supernote-expand-folder',
+			name: 'Expand Supernote Virtual Folder',
+			callback: () => {
+				if (this.virtualFolderProvider) {
+					this.virtualFolderProvider.expandVirtualFolder();
+				}
+			}
+		});
+
+
+
+		this.addCommand({
+			id: 'supernote-open-settings',
+			name: 'Open Supernote Plugin Settings',
+			callback: () => {
+				(this.app as any).setting.open();
+				(this.app as any).setting.openTabById('supernote');
+			}
+		});
+
+
 
 		this.registerView(
 			VIEW_TYPE_SUPERNOTE,
@@ -1075,9 +1115,6 @@ export default class SupernotePlugin extends Plugin {
 	}
 
 	onunload() {
-		// Clean up batch pane view
-		this.app.workspace.detachLeavesOfType(BATCH_FILE_VIEW_TYPE);
-
 		// Clean up virtual folder provider
 		if (this.virtualFolderProvider) {
 			this.virtualFolderProvider.cleanup();
@@ -1107,28 +1144,7 @@ export default class SupernotePlugin extends Plugin {
 		workspace.revealLeaf(leaf);
 	}
 
-	async activateBatchPane() {
-		const { workspace } = this.app;
 
-		let leaf: WorkspaceLeaf | null = null;
-		const leaves = workspace.getLeavesOfType(BATCH_FILE_VIEW_TYPE);
-
-		if (leaves.length > 0) {
-			// A leaf with our view already exists, use that
-			leaf = leaves[0];
-		} else {
-			// Our view could not be found in the workspace, create a new leaf
-			// in the right sidebar for it
-			leaf = workspace.getRightLeaf(false);
-			if (!leaf) {
-				throw new Error("leaf is null");
-			}
-			await leaf.setViewState({ type: BATCH_FILE_VIEW_TYPE, active: true });
-		}
-
-		// "Reveal" the leaf in case it is in a collapsed sidebar
-		workspace.revealLeaf(leaf);
-	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

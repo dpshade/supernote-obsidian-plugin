@@ -239,7 +239,7 @@ src/
 ├── virtual-folder-provider.ts # File explorer integration
 ├── batch-file-manager.ts      # File management logic
 ├── batch-downloader.ts        # Enhanced download with retry
-└── batch-file-pane.ts         # Legacy pane (maintained for compatibility)
+└── batch-file-pane.ts         # Removed - functionality replaced by virtual folder provider
 ```
 
 ### Integration Points
@@ -270,23 +270,23 @@ src/
 
 ### For Users
 
-No migration required! All improvements are backward compatible:
+The batch file pane has been replaced by the virtual folder provider:
 
-- Existing batch pane still works
-- All existing functionality preserved
-- New virtual folder is additional feature
+- Virtual folder in file explorer provides all batch pane functionality
+- Multi-select and context menus replace the separate pane interface
+- All existing functionality preserved through improved interface
 - Performance improvements are automatic
 
 ### For Developers
 
-The improvements maintain the existing API:
+The batch file pane has been removed, but the core functionality remains:
 
 ```typescript
-// Existing code continues to work
+// Core functionality continues to work
 const batchDownloader = new BatchDownloader(app, settings);
 await batchDownloader.convertAndDownload(files, 'png');
 
-// New virtual folder is optional
+// Virtual folder provider replaces batch pane
 const virtualFolder = new VirtualFolderProvider(app, batchFileManager);
 await virtualFolder.initialize();
 ```

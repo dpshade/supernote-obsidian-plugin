@@ -558,39 +558,7 @@ div.page-container {
     color: var(--text-accent);
 }
 
-/* Selection styling for virtual files */
-.supernote-selected {
-    background-color: var(--interactive-accent) !important;
-    color: var(--text-on-accent) !important;
-}
 
-.supernote-selected .tree-item-inner,
-.supernote-selected .nav-file-tag {
-    color: var(--text-on-accent) !important;
-}
-
-/* Selection checkbox */
-.supernote-selection-checkbox {
-    display: none;
-    margin-right: 8px;
-    font-size: 12px;
-    opacity: 0.7;
-    cursor: pointer;
-    user-select: none;
-}
-
-.supernote-selection-checkbox.visible {
-    display: inline-block;
-}
-
-.supernote-selection-checkbox.checked {
-    opacity: 1;
-}
-
-/* Hover effects for selection */
-.tree-item-self:hover .supernote-selection-checkbox {
-    opacity: 1;
-}
 
 /* Modal button container */
 .modal-button-container {

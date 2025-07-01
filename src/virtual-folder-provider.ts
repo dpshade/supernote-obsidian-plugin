@@ -1,5 +1,6 @@
 import { App, TFile, Notice } from 'obsidian';
 import { SupernoteFile, BatchFileManager } from './batch-file-manager';
+import { BatchDownloader } from './batch-downloader';
 
 export interface VirtualSupernoteFile extends TFile {
     supernoteFile: SupernoteFile;
@@ -17,15 +18,19 @@ export class VirtualFolderProvider {
     private connectionCheckInterval: NodeJS.Timeout | null = null;
     private isManualRefresh = false;
     private fileTreeCache: Map<string, SupernoteFile[]> = new Map();
+    private batchDownloader: BatchDownloader;
 
     // Selection state
     private selectedFiles: Set<string> = new Set(); // Track selected file paths
     private selectionMode = false; // Whether we're in selection mode
     private lastClickedFile: string | null = null; // For shift-click range selection
+    private lastClickTime = 0; // For double-click detection
+    private lastClickedPath: string | null = null;
 
     constructor(app: App, batchFileManager: BatchFileManager) {
         this.app = app;
         this.batchFileManager = batchFileManager;
+        this.batchDownloader = new BatchDownloader(app, (batchFileManager as any).settings);
     }
 
     /**
@@ -402,25 +407,24 @@ export class VirtualFolderProvider {
         const isSelected = this.selectedFiles.has(filePath);
 
         const treeItemEl = document.createElement('div');
-        treeItemEl.className = `tree-item nav-file ${isSelected ? 'supernote-selected' : ''}`;
+        treeItemEl.className = 'tree-item nav-file';
         treeItemEl.setAttribute('data-path', filePath);
         treeItemEl.setAttribute('data-supernote-file', 'true');
         treeItemEl.setAttribute('data-file-path', filePath);
 
         const fileTitleSelfEl = document.createElement('div');
-        fileTitleSelfEl.className = `tree-item-self nav-file-title tappable is-clickable ${isSelected ? 'supernote-selected' : ''}`;
+        fileTitleSelfEl.className = `tree-item-self nav-file-title tappable is-clickable`;
+        if (isSelected) {
+            fileTitleSelfEl.classList.add('is-selected');
+        }
         fileTitleSelfEl.setAttribute('data-path', filePath);
+        fileTitleSelfEl.setAttribute('data-file-path', filePath);
         fileTitleSelfEl.setAttribute('draggable', 'true');
 
         const margin = -17 * depth;
         const padding = 24 + (17 * depth);
         fileTitleSelfEl.style.marginInlineStart = `${margin}px`;
         fileTitleSelfEl.style.paddingInlineStart = `${padding}px`;
-
-        // Selection checkbox (hidden by default, shown when selection mode is active)
-        const checkboxEl = document.createElement('div');
-        checkboxEl.className = `supernote-selection-checkbox ${isSelected ? 'checked' : ''} ${this.selectionMode ? 'visible' : ''}`;
-        checkboxEl.innerHTML = isSelected ? '☑️' : '☐';
 
         const fileTitleContentEl = document.createElement('div');
         fileTitleContentEl.className = 'tree-item-inner nav-file-title-content';
@@ -430,12 +434,11 @@ export class VirtualFolderProvider {
         fileTagEl.className = 'nav-file-tag';
         fileTagEl.textContent = file.extension || 'note';
 
-        fileTitleSelfEl.appendChild(checkboxEl);
         fileTitleSelfEl.appendChild(fileTitleContentEl);
         fileTitleSelfEl.appendChild(fileTagEl);
         treeItemEl.appendChild(fileTitleSelfEl);
 
-        // Enhanced click handler with selection support
+        // Click handler with double-click detection
         fileTitleSelfEl.addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleFileClick(file, e);
@@ -452,106 +455,52 @@ export class VirtualFolderProvider {
     }
 
     /**
- * Enhanced file click handler with selection support
- */
+     * Enhanced file click handler with proper selection and double-click support
+     */
     private async handleFileClick(file: SupernoteFile, event: MouseEvent): Promise<void> {
         const filePath = `${this.virtualFolderName}/${file.name}`;
+        const currentTime = Date.now();
+        const isDoubleClick = (currentTime - this.lastClickTime < 300) && (this.lastClickedPath === filePath);
+
+        // Update click tracking
+        this.lastClickTime = currentTime;
+        this.lastClickedPath = filePath;
 
         // Check for modifier keys
         const isCtrlCmd = event.ctrlKey || event.metaKey;
         const isShift = event.shiftKey;
 
-        // Selection logic
-        if (isCtrlCmd || this.selectionMode) {
-            // Toggle selection for this file
+        // Handle double-click to open files
+        if (isDoubleClick) {
+            if (file.extension === 'note' || file.extension === 'pdf') {
+                await this.downloadAndOpenFile(file);
+            }
+            return;
+        }
+
+        // Handle selection with modifier keys
+        if (isCtrlCmd) {
+            // Ctrl/Cmd + click toggles individual selection
             this.toggleFileSelection(filePath);
             this.lastClickedFile = filePath;
             return;
         }
 
         if (isShift && this.lastClickedFile) {
-            // Range selection
+            // Shift + click selects range
             this.selectFileRange(this.lastClickedFile, filePath);
             return;
         }
 
-        // If we have selections, first click should clear them unless it's a .note file
-        if (this.selectedFiles.size > 0) {
-            if (file.extension === 'note') {
-                // For .note files, ask user what they want to do
-                const choice = await this.showSelectionChoice(file);
-                if (choice === 'open') {
-                    this.clearSelection();
-                    await this.convertAndOpenFile(file);
-                } else if (choice === 'select') {
-                    this.toggleFileSelection(filePath);
-                    this.lastClickedFile = filePath;
-                }
-                return;
-            } else {
-                this.clearSelection();
-            }
-        }
-
-        // Normal click behavior
-        if (file.extension === 'note') {
-            // For .note files, convert to PDF and open
-            await this.convertAndOpenFile(file);
-        } else {
-            // Select non-.note files
-            this.toggleFileSelection(filePath);
-            this.lastClickedFile = filePath;
-        }
+        // Regular click behavior: clear previous selections and select the new one
+        this.clearSelection();
+        this.toggleFileSelection(filePath);
+        this.lastClickedFile = filePath;
     }
 
     /**
-     * Show choice dialog for .note files when selections exist
+     * Convert .note file to PDF and open with default viewer
      */
-    private async showSelectionChoice(file: SupernoteFile): Promise<'open' | 'select' | 'cancel'> {
-        return new Promise((resolve) => {
-            const modal = new (this.app as any).Modal(this.app);
-
-            modal.titleEl.textContent = 'File Action';
-
-            const content = modal.contentEl;
-            content.createEl('p', {
-                text: `What would you like to do with ${file.name}?`
-            });
-
-            const buttonContainer = content.createDiv('modal-button-container');
-
-            const openBtn = buttonContainer.createEl('button', {
-                text: 'Open File',
-                cls: 'mod-cta'
-            });
-            openBtn.addEventListener('click', () => {
-                modal.close();
-                resolve('open');
-            });
-
-            const selectBtn = buttonContainer.createEl('button', {
-                text: 'Add to Selection'
-            });
-            selectBtn.addEventListener('click', () => {
-                modal.close();
-                resolve('select');
-            });
-
-            const cancelBtn = buttonContainer.createEl('button', {
-                text: 'Cancel'
-            });
-            cancelBtn.addEventListener('click', () => {
-                modal.close();
-                resolve('cancel');
-            });
-
-            modal.open();
-        });
-    }
-
-    /**
- * Convert .note file to PDF and open with default viewer
- */
     private async convertAndOpenFile(file: SupernoteFile): Promise<void> {
         try {
             // Use the original filename
@@ -580,7 +529,7 @@ export class VirtualFolderProvider {
             const leaf = this.app.workspace.getLeaf('tab');
             await leaf.openFile(tfile as TFile, { active: true });
 
-            new Notice(`✅ Downloaded ${file.name}. PDF conversion coming soon!`);
+            new Notice(`✅ Opened ${file.name}`);
 
         } catch (error) {
             console.error('Failed to convert and open file:', error);
@@ -809,34 +758,48 @@ export class VirtualFolderProvider {
         const filePath = `${this.virtualFolderName}/${file.name}`;
         const isSelected = this.selectedFiles.has(filePath);
 
-        // If this file isn't selected but we have other selections, add it to selection
-        if (!isSelected && this.selectedFiles.size > 0) {
-            this.selectedFiles.add(filePath);
-            this.updateFileSelectionVisual(filePath);
-            this.updateSelectionMode();
+        // If right-clicking a file that is not in the current selection,
+        // clear the old selection and select just this one file.
+        if (!isSelected) {
+            this.clearSelection();
+            this.toggleFileSelection(filePath);
+            this.lastClickedFile = filePath;
         }
 
-        // Selection operations
-        if (this.selectedFiles.size > 0) {
-            const selectedFiles = this.getSelectedFiles();
-            const selectedCount = selectedFiles.length;
+        const selectedFiles = this.getSelectedFiles();
+        const selectedCount = selectedFiles.length;
 
+        // Single file operations first
+        if (selectedCount === 1 && (file.extension === 'note' || file.extension === 'pdf')) {
             menu.addItem((item: any) => {
-                item.setTitle(`📋 ${selectedCount} file${selectedCount > 1 ? 's' : ''} selected`)
-                    .setDisabled(true);
+                item.setTitle('📖 Open File')
+                    .setIcon('eye')
+                    .onClick(() => this.downloadAndOpenFile(file));
             });
 
             menu.addSeparator();
+        }
 
-            // Batch operations
-            menu.addItem((item: any) => {
-                item.setTitle('📄 Convert Selected to PDF')
-                    .setIcon('file-text')
-                    .onClick(() => this.batchConvertFiles(selectedFiles, 'pdf'));
-            });
+        // Batch operations (or single file if only one is selected)
+        if (selectedCount > 0) {
+            const areAllConvertible = selectedFiles.every(f => f.extension === 'note');
+
+            if (areAllConvertible) {
+                menu.addItem((item: any) => {
+                    item.setTitle(`📄 Convert to PDF`)
+                        .setIcon('file-text')
+                        .onClick(() => this.batchConvertFiles(selectedFiles, 'pdf'));
+                });
+
+                menu.addItem((item: any) => {
+                    item.setTitle(`🖼️ Convert to PNG`)
+                        .setIcon('image')
+                        .onClick(() => this.batchConvertFiles(selectedFiles, 'png'));
+                });
+            }
 
             menu.addItem((item: any) => {
-                item.setTitle('⬇️ Download Selected Originals')
+                item.setTitle(`⬇️ Download Original(s)`)
                     .setIcon('download')
                     .onClick(() => this.batchDownloadFiles(selectedFiles));
             });
@@ -844,39 +807,18 @@ export class VirtualFolderProvider {
             menu.addSeparator();
 
             menu.addItem((item: any) => {
-                item.setTitle('❌ Clear Selection')
-                    .setIcon('x')
-                    .onClick(() => this.clearSelection());
-            });
-
-        } else {
-            // Single file operations
-            if (!file.isDirectory) {
-                menu.addItem((item: any) => {
-                    item.setTitle('📄 Convert to PDF')
-                        .setIcon('file-text')
-                        .onClick(() => this.convertFile(file, 'pdf'));
-                });
-
-                menu.addSeparator();
-            }
-
-            menu.addItem((item: any) => {
-                item.setTitle('⬇️ Download Original')
-                    .setIcon('download')
-                    .onClick(() => this.downloadFile(file));
-            });
-
-            menu.addSeparator();
-
-            menu.addItem((item: any) => {
-                item.setTitle('☑️ Select File')
+                item.setTitle('☑️ Select All')
                     .setIcon('check-square')
-                    .onClick(() => {
-                        this.toggleFileSelection(filePath);
-                        this.lastClickedFile = filePath;
-                    });
+                    .onClick(() => this.selectAllFiles());
             });
+
+            if (selectedCount > 0) {
+                menu.addItem((item: any) => {
+                    item.setTitle('❌ Clear Selection')
+                        .setIcon('x')
+                        .onClick(() => this.clearSelection());
+                });
+            }
         }
 
         menu.showAtPosition({ x: event.clientX, y: event.clientY });
@@ -918,21 +860,25 @@ export class VirtualFolderProvider {
     }
 
     /**
-     * Convert file to PDF
+     * Convert file to specified format
      */
-    private async convertFile(file: SupernoteFile, format: 'pdf'): Promise<void> {
-        // This would integrate with the existing batch downloader
-        console.log(`Converting ${file.name} to ${format}`);
-        // Implementation would call the batch downloader
+    private async convertFile(file: SupernoteFile, format: 'pdf' | 'png'): Promise<void> {
+        try {
+            await this.batchDownloader.convertAndDownload([file], format);
+        } catch (error) {
+            new Notice(`❌ Failed to convert ${file.name}: ${error.message}`);
+        }
     }
 
     /**
      * Download original file
      */
     private async downloadFile(file: SupernoteFile): Promise<void> {
-        // This would integrate with the existing batch downloader
-        console.log(`Downloading ${file.name}`);
-        // Implementation would call the batch downloader
+        try {
+            await this.batchDownloader.downloadFiles([file]);
+        } catch (error) {
+            new Notice(`❌ Failed to download ${file.name}: ${error.message}`);
+        }
     }
 
     /**
@@ -981,7 +927,15 @@ export class VirtualFolderProvider {
                     default:
                         status = '(Disconnected)';
                 }
-                titleEl.textContent = `${this.virtualFolderName} ${status}`;
+
+                let titleText = `${this.virtualFolderName} ${status}`;
+
+                // Add selection count if any files are selected
+                if (this.selectedFiles.size > 0) {
+                    titleText = `${this.virtualFolderName} (${this.selectedFiles.size} selected)`;
+                }
+
+                titleEl.textContent = titleText;
             }
         });
     }
@@ -999,6 +953,47 @@ export class VirtualFolderProvider {
             const virtualFolder = fileExplorer.view.containerEl.querySelector('[data-supernote-virtual="true"]');
             if (virtualFolder) {
                 virtualFolder.remove();
+            }
+        }
+    }
+
+    /**
+     * Public method to check connection status
+     */
+    getConnectionStatus(): { state: 'disconnected' | 'connecting' | 'connected' | 'error'; error: string | null } {
+        return {
+            state: this.connectionState,
+            error: this.lastError
+        };
+    }
+
+    /**
+     * Public method to manually connect to device
+     */
+    async connectToDevice(): Promise<void> {
+        await this.attemptConnection(true);
+    }
+
+    /**
+     * Public method to refresh the virtual folder
+     */
+    async refreshVirtualFolder(): Promise<void> {
+        this.isManualRefresh = true;
+        await this.attemptConnection(true);
+    }
+
+    /**
+     * Public method to expand the virtual folder
+     */
+    expandVirtualFolder(): void {
+        const fileExplorer = this.app.workspace.getLeavesOfType('file-explorer')[0];
+        if (fileExplorer) {
+            const virtualFolder = fileExplorer.view.containerEl.querySelector('[data-supernote-virtual="true"]');
+            if (virtualFolder && !virtualFolder.hasAttribute('data-expanded')) {
+                const folderTitleEl = virtualFolder.querySelector('.tree-item-self.nav-folder-title');
+                if (folderTitleEl) {
+                    (folderTitleEl as HTMLElement).click();
+                }
             }
         }
     }
@@ -1226,7 +1221,7 @@ export class VirtualFolderProvider {
         }
     }
 
-    // Selection Management Methods
+    // --- Selection Management Methods ---
 
     /**
      * Toggle selection for a file
@@ -1238,10 +1233,7 @@ export class VirtualFolderProvider {
             this.selectedFiles.add(filePath);
         }
 
-        // Update visual state
         this.updateFileSelectionVisual(filePath);
-
-        // Update selection mode
         this.updateSelectionMode();
     }
 
@@ -1249,7 +1241,7 @@ export class VirtualFolderProvider {
      * Select range of files between two paths
      */
     private selectFileRange(startPath: string, endPath: string): void {
-        const allFiles = Array.from(document.querySelectorAll('[data-supernote-file="true"]'));
+        const allFiles = Array.from(document.querySelectorAll('[data-supernote-file="true"] .nav-file-title'));
         const startIndex = allFiles.findIndex(el => el.getAttribute('data-file-path') === startPath);
         const endIndex = allFiles.findIndex(el => el.getAttribute('data-file-path') === endPath);
 
@@ -1257,6 +1249,11 @@ export class VirtualFolderProvider {
 
         const minIndex = Math.min(startIndex, endIndex);
         const maxIndex = Math.max(startIndex, endIndex);
+
+        // First, clear the selection but keep the start path selected
+        this.clearSelection();
+        this.selectedFiles.add(startPath);
+        this.updateFileSelectionVisual(startPath);
 
         for (let i = minIndex; i <= maxIndex; i++) {
             const filePath = allFiles[i].getAttribute('data-file-path');
@@ -1266,6 +1263,21 @@ export class VirtualFolderProvider {
             }
         }
 
+        this.updateSelectionMode();
+    }
+
+    /**
+     * Select all visible files
+     */
+    private selectAllFiles(): void {
+        const allFiles = Array.from(document.querySelectorAll('[data-supernote-file="true"] .nav-file-title'));
+        allFiles.forEach(fileEl => {
+            const filePath = fileEl.getAttribute('data-file-path');
+            if (filePath) {
+                this.selectedFiles.add(filePath);
+                this.updateFileSelectionVisual(filePath);
+            }
+        });
         this.updateSelectionMode();
     }
 
@@ -1289,21 +1301,7 @@ export class VirtualFolderProvider {
         if (!fileElement) return;
 
         const isSelected = this.selectedFiles.has(filePath);
-        const treeItem = fileElement.closest('.tree-item');
-        const checkbox = fileElement.querySelector('.supernote-selection-checkbox');
-
-        if (treeItem) {
-            treeItem.classList.toggle('supernote-selected', isSelected);
-        }
-
-        if (fileElement) {
-            fileElement.classList.toggle('supernote-selected', isSelected);
-        }
-
-        if (checkbox) {
-            checkbox.classList.toggle('checked', isSelected);
-            checkbox.innerHTML = isSelected ? '☑️' : '☐';
-        }
+        fileElement.classList.toggle('is-selected', isSelected);
     }
 
     /**
@@ -1314,38 +1312,8 @@ export class VirtualFolderProvider {
         this.selectionMode = this.selectedFiles.size > 0;
 
         if (wasInSelectionMode !== this.selectionMode) {
-            // Update all checkboxes visibility
-            const checkboxes = document.querySelectorAll('.supernote-selection-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.classList.toggle('visible', this.selectionMode);
-            });
-
-            // Update virtual folder title
-            this.updateVirtualFolderTitle();
-        }
-    }
-
-    /**
-     * Update virtual folder title with selection info
-     */
-    private updateVirtualFolderTitle(): void {
-        const fileExplorer = this.app.workspace.getLeavesOfType('file-explorer')[0];
-        if (!fileExplorer) return;
-
-        const virtualFolder = fileExplorer.view.containerEl.querySelector('[data-supernote-virtual="true"]');
-        if (!virtualFolder) return;
-
-        const titleEl = virtualFolder.querySelector('.tree-item-inner.nav-folder-title-content');
-        if (titleEl) {
-            let titleText = this.virtualFolderName;
-
-            if (this.selectedFiles.size > 0) {
-                titleText += ` (${this.selectedFiles.size} selected)`;
-            } else {
-                titleText += this.isConnected ? ' (Connected)' : ' (Disconnected)';
-            }
-
-            titleEl.textContent = titleText;
+            // Update virtual folder title to show selection count
+            this.updateConnectionStatus();
         }
     }
 
@@ -1353,60 +1321,28 @@ export class VirtualFolderProvider {
      * Get selected files as SupernoteFile objects
      */
     private getSelectedFiles(): SupernoteFile[] {
-        const selectedFiles: SupernoteFile[] = [];
+        const selectedFileObjects: SupernoteFile[] = [];
+        const allFiles = [...this.fileTreeCache.values()].flat();
 
         this.selectedFiles.forEach(filePath => {
             const fileName = filePath.replace(`${this.virtualFolderName}/`, '');
-            // Find the file in our cached files
-            for (const [, files] of this.fileTreeCache.entries()) {
-                const file = files.find(f => f.name === fileName);
-                if (file) {
-                    selectedFiles.push(file);
-                    break;
-                }
+            const fileObject = allFiles.find(f => f.name === fileName);
+            if (fileObject) {
+                selectedFileObjects.push(fileObject);
             }
         });
 
-        return selectedFiles;
+        return selectedFileObjects;
     }
 
     /**
-     * Batch convert files to PDF
+     * Batch convert files to specified format
      */
-    private async batchConvertFiles(files: SupernoteFile[], format: 'pdf'): Promise<void> {
-        const notice = new Notice(`Converting ${files.length} files to ${format.toUpperCase()}...`, 0);
-
+    private async batchConvertFiles(files: SupernoteFile[], format: 'pdf' | 'png'): Promise<void> {
         try {
-            let successCount = 0;
-            let errorCount = 0;
-
-            for (const file of files) {
-                try {
-                    await this.convertFile(file, format);
-                    successCount++;
-                } catch (error) {
-                    console.error(`Failed to convert ${file.name}:`, error);
-                    errorCount++;
-                }
-            }
-
-            notice.hide();
-
-            if (successCount > 0) {
-                new Notice(`✅ Converted ${successCount} file${successCount > 1 ? 's' : ''} to ${format.toUpperCase()}`);
-            }
-
-            if (errorCount > 0) {
-                new Notice(`❌ Failed to convert ${errorCount} file${errorCount > 1 ? 's' : ''}`);
-            }
-
-            // Clear selection after successful batch operation
-            if (successCount > 0) {
-                this.clearSelection();
-            }
-
+            await this.batchDownloader.convertAndDownload(files, format);
+            this.clearSelection();
         } catch (error) {
-            notice.hide();
             new Notice(`❌ Batch conversion failed: ${error.message}`);
         }
     }
@@ -1415,40 +1351,12 @@ export class VirtualFolderProvider {
      * Batch download files
      */
     private async batchDownloadFiles(files: SupernoteFile[]): Promise<void> {
-        const notice = new Notice(`Downloading ${files.length} files...`, 0);
-
         try {
-            let successCount = 0;
-            let errorCount = 0;
-
-            for (const file of files) {
-                try {
-                    await this.downloadFile(file);
-                    successCount++;
-                } catch (error) {
-                    console.error(`Failed to download ${file.name}:`, error);
-                    errorCount++;
-                }
-            }
-
-            notice.hide();
-
-            if (successCount > 0) {
-                new Notice(`✅ Downloaded ${successCount} file${successCount > 1 ? 's' : ''}`);
-            }
-
-            if (errorCount > 0) {
-                new Notice(`❌ Failed to download ${errorCount} file${errorCount > 1 ? 's' : ''}`);
-            }
-
-            // Clear selection after successful batch operation
-            if (successCount > 0) {
-                this.clearSelection();
-            }
-
+            await this.batchDownloader.downloadFiles(files);
+            this.clearSelection();
         } catch (error) {
-            notice.hide();
             new Notice(`❌ Batch download failed: ${error.message}`);
         }
     }
+
 } 
