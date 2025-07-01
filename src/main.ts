@@ -8,6 +8,8 @@ import { SupernoteWorkerMessage, SupernoteWorkerResponse } from './myworker.work
 import Worker from 'myworker.worker';
 import { replaceTextWithCustomDictionary } from './customDictionary';
 import { BatchFilePane, BATCH_FILE_VIEW_TYPE } from './batch-file-pane';
+import { VirtualFolderProvider } from './virtual-folder-provider';
+import { BatchFileManager } from './batch-file-manager';
 
 function generateTimestamp(): string {
 	const date = new Date();
@@ -80,18 +82,17 @@ export class WorkerPool {
 				reject(error);
 			};
 
-			// Pass the original buffer data to the worker
+			// Pass the original buffer data to the worker using transferable objects
 			const message: SupernoteWorkerMessage = {
 				type: 'convert',
-				note: {
-					buffer: Array.from(originalBuffer), // Convert Uint8Array to regular array for transfer
-					pageWidth: note.pageWidth,
-					pageHeight: note.pageHeight
-				},
+				noteBuffer: originalBuffer.buffer as ArrayBuffer, // Transfer ArrayBuffer directly
 				pageNumbers
 			};
 
-			worker.postMessage(message);
+			// Transfer the buffer ownership to worker for better performance
+			// Cast to ArrayBuffer to ensure compatibility with Transferable interface
+			const transferableBuffer = originalBuffer.buffer as ArrayBuffer;
+			worker.postMessage(message, [transferableBuffer]);
 		});
 	}
 
@@ -704,6 +705,7 @@ class ImageZoomModal extends Modal {
 
 export default class SupernotePlugin extends Plugin {
 	settings: SupernotePluginSettings;
+	private virtualFolderProvider: VirtualFolderProvider | null = null;
 
 	async onload() {
 		// Install polyfills before any other code runs
@@ -711,6 +713,11 @@ export default class SupernotePlugin extends Plugin {
 
 		await this.loadSettings();
 		vw = new VaultWriter(this.app, this.settings);
+
+		// Initialize virtual folder provider for file explorer integration
+		const batchFileManager = new BatchFileManager(this.app, this.settings);
+		this.virtualFolderProvider = new VirtualFolderProvider(this.app, batchFileManager);
+		await this.virtualFolderProvider.initialize();
 
 		this.addSettingTab(new SupernoteSettingTab(this.app, this));
 
@@ -1090,6 +1097,11 @@ export default class SupernotePlugin extends Plugin {
 	onunload() {
 		// Clean up batch pane view
 		this.app.workspace.detachLeavesOfType(BATCH_FILE_VIEW_TYPE);
+
+		// Clean up virtual folder provider
+		if (this.virtualFolderProvider) {
+			this.virtualFolderProvider.cleanup();
+		}
 	}
 
 	async activateView() {

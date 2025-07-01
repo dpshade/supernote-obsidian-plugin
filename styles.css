@@ -76,6 +76,103 @@ div.page-container {
 
 /* Supernote Plugin Styles */
 
+/* Virtual Folder Styles - Matching Obsidian's Tree Structure Exactly */
+[data-supernote-virtual="true"] {
+    /* Ensure virtual folder looks exactly like real folders */
+    margin: 0;
+    padding: 0;
+}
+
+[data-supernote-virtual="true"] .tree-item-self {
+    /* Match Obsidian's folder styling exactly */
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+    margin: 0;
+}
+
+[data-supernote-virtual="true"] .tree-item-self:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+[data-supernote-virtual="true"] .tree-item-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+[data-supernote-virtual="true"] .tree-item-icon .svg-icon {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease;
+}
+
+[data-supernote-virtual="true"] .tree-item-inner {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+[data-supernote-virtual="true"] .tree-item-children {
+    /* Match Obsidian's children container */
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+}
+
+[data-supernote-file="true"] {
+    /* Ensure virtual files look exactly like real files */
+    margin: 0;
+    padding: 0;
+}
+
+[data-supernote-file="true"] .tree-item-self {
+    /* Match Obsidian's file styling exactly */
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+    margin: 0;
+}
+
+[data-supernote-file="true"] .tree-item-self:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+[data-supernote-file="true"] .tree-item-inner {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+[data-supernote-file="true"] .nav-file-tag {
+    /* Match Obsidian's file tag styling */
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    background-color: var(--background-modifier-border);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
 /* Batch File Pane Styles - Matching Obsidian's Tree Structure */
 .supernote-file-pane {
     padding: 0;

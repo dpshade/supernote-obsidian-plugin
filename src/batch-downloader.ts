@@ -50,10 +50,14 @@ export class BatchDownloader {
                         status: 'downloading'
                     });
 
-                    await this.downloadOriginalFile(file, overallIndex + 1, files.length, onProgress);
+                    await this.downloadOriginalFileWithRetry(file, overallIndex + 1, files.length, onProgress);
                     result.successful.push(file);
                 } catch (error) {
-                    result.failed.push({ file, error: error.message });
+                    console.error(`Failed to download ${file.name}:`, error);
+                    result.failed.push({
+                        file,
+                        error: error instanceof Error ? error.message : 'Unknown error occurred'
+                    });
                 }
             });
 
@@ -61,6 +65,28 @@ export class BatchDownloader {
         }
 
         return result;
+    }
+
+    private async downloadOriginalFileWithRetry(
+        file: SupernoteFile,
+        current: number,
+        total: number,
+        onProgress?: (progress: DownloadProgress) => void,
+        retryCount = 0
+    ): Promise<void> {
+        const maxRetries = 3;
+        const retryDelay = 1000 * Math.pow(2, retryCount); // Exponential backoff
+
+        try {
+            await this.downloadOriginalFile(file, current, total, onProgress);
+        } catch (error) {
+            if (retryCount < maxRetries && this.isRetryableError(error)) {
+                console.warn(`Retrying download of ${file.name} (attempt ${retryCount + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return this.downloadOriginalFileWithRetry(file, current, total, onProgress, retryCount + 1);
+            }
+            throw error;
+        }
     }
 
     private async downloadOriginalFile(
@@ -77,12 +103,35 @@ export class BatchDownloader {
             status: 'downloading'
         });
 
-        const response = await fetch(`http://${this.settings.directConnectIP}:8089${file.uri}`);
-        if (!response.ok) {
-            throw new Error(`Failed to download ${file.name}: ${response.statusText}`);
+        // Create a timeout controller for compatibility
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        let response: Response;
+        try {
+            response = await fetch(`http://${this.settings.directConnectIP}:8089${file.uri}`, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('Request timed out after 30 seconds');
+            }
+            throw error;
         }
 
         const arrayBuffer = await response.arrayBuffer();
+
+        // Validate file size
+        if (arrayBuffer.byteLength === 0) {
+            throw new Error('Downloaded file is empty');
+        }
 
         // Save original file to attachments
         onProgress?.({
@@ -100,6 +149,24 @@ export class BatchDownloader {
             fileName: file.name,
             status: 'complete'
         });
+    }
+
+    private isRetryableError(error: any): boolean {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            return true; // Network errors
+        }
+        if (error.name === 'AbortError') {
+            return true; // Timeout errors
+        }
+        if (error.message && (
+            error.message.includes('Failed to fetch') ||
+            error.message.includes('NetworkError') ||
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('ENOTFOUND')
+        )) {
+            return true; // Network-related errors
+        }
+        return false;
     }
 
     async convertAndDownload(files: SupernoteFile[], format: string): Promise<void> {
@@ -213,6 +280,10 @@ export class BatchDownloader {
                 throw new Error(`Invalid SuperNote file structure: pages array is missing or invalid`);
             }
 
+            if (supernote.pages.length === 0) {
+                throw new Error(`SuperNote file contains no pages`);
+            }
+
             console.log(`Processing ${file.name}: ${supernote.pages.length} pages found`);
 
             const baseName = file.name.replace(/\.note$/, '');
@@ -223,8 +294,14 @@ export class BatchDownloader {
                 let images: string[] = [];
                 try {
                     images = await converter.convertToImages(supernote, undefined, uint8Array);
+                } catch (conversionError) {
+                    throw new Error(`Image conversion failed: ${conversionError.message}`);
                 } finally {
                     converter.terminate();
+                }
+
+                if (!images || images.length === 0) {
+                    throw new Error('No images generated during conversion');
                 }
 
                 // Save each image using the same method as VaultWriter
@@ -239,8 +316,12 @@ export class BatchDownloader {
                         status: 'saving'
                     });
 
-                    const pngData = this.dataUrlToBuffer(images[i]);
-                    await this.saveFileToAttachments(fileName, pngData);
+                    try {
+                        const pngData = this.dataUrlToBuffer(images[i]);
+                        await this.saveFileToAttachments(fileName, pngData);
+                    } catch (saveError) {
+                        throw new Error(`Failed to save image ${i + 1}: ${saveError.message}`);
+                    }
                 }
 
                 console.log(`Generated ${images.length} PNG files for ${file.name}`);
@@ -253,15 +334,21 @@ export class BatchDownloader {
                     status: 'saving'
                 });
 
-                const pdfData = await this.vaultWriter.generatePDFFromSupernote(supernote, uint8Array);
-                const fileName = `${baseName}.pdf`;
-                await this.saveFileToAttachments(fileName, new Uint8Array(pdfData));
+                try {
+                    const pdfData = await this.vaultWriter.generatePDFFromSupernote(supernote, uint8Array);
+                    const fileName = `${baseName}.pdf`;
+                    await this.saveFileToAttachments(fileName, new Uint8Array(pdfData));
+                } catch (pdfError) {
+                    throw new Error(`PDF generation failed: ${pdfError.message}`);
+                }
             } else {
                 throw new Error(`Unsupported format: ${format}`);
             }
 
         } catch (error) {
-            throw new Error(`Conversion failed for ${file.name}: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown conversion error';
+            console.error(`Conversion failed for ${file.name}:`, error);
+            throw new Error(`Conversion failed for ${file.name}: ${errorMessage}`);
         }
 
         onProgress?.({
